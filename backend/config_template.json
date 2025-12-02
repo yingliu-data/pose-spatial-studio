@@ -1,0 +1,32 @@
+{
+    "image_processor": {
+        "flip_horizontal": false
+    },
+
+    "data_processor": {
+        "target_fps": 10,
+        "preprocessing_mode": "single_frame",
+        "window_size": 2,
+        "frame_differencing_enabled": false,
+        "greyscale_enabled": true,
+        "_comments": {
+            "preprocessing_mode": "Options: 'sliding_window', 'single_frame'",
+            "pose_feature_extraction_mode": "Options: 'landmarks', 'heatmaps', 'joint_angles'",
+            "crop_mode": "Options: 'pose_centered', 'tight_bbox', 'full_body'",
+            "normalization_method": "Options: 'standard', 'minmax'"
+        }
+    },
+    "pose_processor": {
+        "processor_type": "mediapipe",
+        "pose_landmarker_model_name": "pose_landmarker_full.task",
+        "object_detector_model_name": "efficientdet_lite2.tflite",
+        "min_detection_confidence": 0.5,
+        "min_tracking_confidence": 0.5,
+        "min_presence_confidence": 0.5,
+        "pose_landmarker_frame_width": 640,
+        "pose_landmarker_frame_height": 480,
+        "object_detector_frame_width": 448,
+        "object_detector_frame_height": 448,
+        "num_poses": 1
+    }
+}

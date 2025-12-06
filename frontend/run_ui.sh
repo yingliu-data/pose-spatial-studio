@@ -19,6 +19,6 @@ fi
 echo "Installing dependencies..."
 npm install || { echo "Failed to install dependencies"; exit 1; }
 
-echo "Starting development server on http://localhost:5173"
+echo "Starting development server on http://localhost:8585"
 npm run dev
 

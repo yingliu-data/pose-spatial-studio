@@ -1,7 +1,6 @@
 import { Socket } from 'socket.io-client';
 import { PoseResult } from '@/types/pose';
 import { StreamViewer } from './StreamViewer';
-import { DataAnalysis } from './DataAnalysis_';
 import { useState, useCallback, useRef, useEffect } from 'react';
 
 interface Stream {
@@ -37,7 +36,7 @@ export function MultiViewGrid({ socket, streams, poseResults, selectedStream, on
   const [isDragging, setIsDragging] = useState(false);
   
   const videoElementsRef = useRef<Map<string, HTMLVideoElement>>(new Map());
-  const animationFrameRef = useRef<number>();
+  const animationFrameRef = useRef<number | undefined>(undefined);
   const containerRef = useRef<HTMLDivElement>(null);
 
   const registerVideoElement = useCallback((streamId: string, element: HTMLVideoElement | null) => {

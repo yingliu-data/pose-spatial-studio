@@ -5,8 +5,7 @@ export class StreamService {
 
   constructor(
     private socket: Socket,
-    private streamId: string,
-    private processorConfig: Record<string, any> = {}
+    private streamId: string
   ) {}
 
   sendFrame(frameData: string, timestamp: number): void {

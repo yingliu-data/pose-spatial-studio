@@ -13,7 +13,7 @@ on:
       - closed
     paths:
       - 'frontend/**'
-      - '.github/workflows/deploy.yml'
+      - '.github/workflows/deploy_frontend.yml'
 
 jobs:
   deploy:
@@ -49,7 +49,7 @@ jobs:
       - name: Setup SSH agent
         uses: webfactory/ssh-agent@v0.9.0
         with:
-          ssh-private-key: ${{ secrets.SSH_PRIVATE_KEY }}   # github-deploy private key
+          ssh-private-key: ${{ secrets.SSH_PRIVATE_KEY }}
 
       - name: Install cloudflared
         run: |
@@ -61,17 +61,15 @@ jobs:
         run: |
           mkdir -p ~/.ssh
           cat << 'EOF' >> ~/.ssh/config
-Host vm-ssh
-  HostName ssh.yingliu.site
-  User sophia
-  ProxyCommand cloudflared access ssh --hostname %h
-EOF
+          Host vm-ssh
+            HostName ssh.yingliu.site
+            User sophia
+            ProxyCommand cloudflared access ssh --hostname %h
+          EOF
           chmod 600 ~/.ssh/config
 
-      # Optional: trust host key on first connect (you already did this locally)
       - name: Test SSH via Cloudflare
-        run: |
-          ssh -o StrictHostKeyChecking=accept-new vm-ssh "echo 'SSH OK via Cloudflare'"
+        run: ssh -o StrictHostKeyChecking=accept-new vm-ssh "echo 'SSH OK via Cloudflare'"
 
       - name: Deploy via rsync
         run: |

@@ -1,7 +1,11 @@
 name: Deploy frontend
-
 on:
-  workflow_dispatch: {}
+  workflow_dispatch:
+    inputs:
+      force_deploy:
+        description: 'Run deploy even without merged PR from develop'
+        required: false
+        default: 'false'
   pull_request:
     branches:
       - main
@@ -14,8 +18,11 @@ on:
 jobs:
   deploy:
     if: >
-      github.event.pull_request.merged == true &&
-      github.event.pull_request.head.ref == 'develop'
+      (github.event_name == 'pull_request' &&
+       github.event.pull_request.merged == true &&
+       github.event.pull_request.head.ref == 'develop') ||
+      (github.event_name == 'workflow_dispatch' &&
+       inputs.force_deploy == 'true')
     runs-on: ubuntu-latest
 
     defaults:

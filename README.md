@@ -75,13 +75,11 @@ The script will:
    - Scroll: Zoom
 6. Click "Add Stream" to add multiple camera feeds
 
+## Deployment
+
+The frontend is currently hosted on [robot.yingliu.site](https://robot.yingliu.site). Every push from the `develop` branch to the `main` branch on GitHub will trigger a GitHub Action for automatic deployment.
+
 ## API Endpoints
-
-### HTTP Endpoints
-
-- `GET /` - API information
-- `GET /health` - Health check and statistics
-- `GET /info` - Detailed API information
 
 ### WebSocket Events
 

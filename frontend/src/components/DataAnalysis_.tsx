@@ -219,7 +219,13 @@ export function DataAnalysis({ poseResults, streams }: DataAnalysisProps) {
                   <span>Stream: {streamLabel}</span>
                 </div>
                 <canvas
-                  ref={el => el ? canvasRefs.current.set(key, el) : canvasRefs.current.delete(key)}
+                  ref={el => {
+                    if (el) {
+                      canvasRefs.current.set(key, el);
+                    } else {
+                      canvasRefs.current.delete(key);
+                    }
+                  }}
                   width={CHART_CONFIG.width}
                   height={CHART_CONFIG.height}
                   style={{ width: '100%', height: 'auto', display: 'block', borderRadius: '4px' }}

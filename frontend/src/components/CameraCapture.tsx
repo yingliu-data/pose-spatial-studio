@@ -18,7 +18,7 @@ interface CameraCaptureProps {
 export function CameraCapture({ 
   socket, 
   streamId, 
-  processorConfig,
+  processorConfig: _processorConfig,
   sourceType, 
   deviceId,
   videoFile, 
@@ -62,7 +62,7 @@ export function CameraCapture({
     if (!socket) return;
 
     if (!streamServiceRef.current) {
-      streamServiceRef.current = new StreamService(socket, streamId, processorConfig);
+      streamServiceRef.current = new StreamService(socket, streamId);
     }
 
     const startSource = async () => {

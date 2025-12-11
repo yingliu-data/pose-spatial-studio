@@ -64,8 +64,8 @@ jobs:
           mkdir -p ~/.ssh
           cat << 'EOF' >> ~/.ssh/config
           Host vm-ssh
-            HostName ssh.yingliu.site
-            User sophia
+            HostName ${{ secrets.SSH_HOST }}
+            User ${{ secrets.SSH_USER }}
             ProxyCommand cloudflared access ssh --hostname %h
           EOF
           chmod 600 ~/.ssh/config

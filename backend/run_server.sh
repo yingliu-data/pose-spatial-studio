@@ -5,8 +5,8 @@ set -e
 VENV_DIR=".venv.nosync"
 
 if ! command -v python3.12 &> /dev/null; then
-    echo "Python 3.12 not found. Installing via Homebrew..."
-    brew install python@3.12
+    echo "Python 3.12 not found. Installing via apt-get..."
+    apt-get install python@3.12
 fi
 
 PYTHON312_PATH=$(command -v python3.12)

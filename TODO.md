@@ -1,29 +1,29 @@
 ### Phase 1 — Deploy two VMs with GPU backend and secure frontend
 #### VM1: Edge (CPU‑only, public)
-- DNS (Todo)
-  - Add `A` records: `app.yourdomain` → VM1 IP; `api.yourdomain` → VM1 IP.
-- OS/Base (Todo)
+- DNS (Done)
+  - Add `A` records: `pose.yourdomain` → VM1 IP; `api.yourdomain` → VM1 IP.
+- OS/Base (Done)
   - Ubuntu 22.04/24.04, firewall (ufw) allow 80/443, SSH from admin IPs only.
   - Install Docker + Compose plugin.
-- Reverse proxy & TLS (Todo)
-  - Nginx for `app.yourdomain` (serves frontend static) and `api.yourdomain` (proxies to VM2:8000).
+- Reverse proxy & TLS (Done)
+  - Nginx for `pose.yourdomain` (serves frontend static) and `api.yourdomain` (proxies to VM2:8000).
   - Certbot (cron/renewal). Enable HTTP/2, gzip, HSTS.
   - Configure WebSocket upgrade for `/socket.io/`.
-- Frontend hosting (Todo)
+- Frontend hosting (Done)
   - Build frontend (`npm ci && npm run build`).
   - Copy `dist/` to `/var/www/app` (owned by Nginx user).
-- Security (Todo)
+- Security (Done)
   - Optional Basic Auth while private testing.
   - Rate limit `/socket.io/` and API.
-- Observability (Todo)
+- Observability (Done)
   - Access logs to `/var/log/nginx`; set log rotation.
 
 #### VM2: GPU App (private behind Edge)
 - Proxmox GPU (Done)
   - GPU passthrough completed (as stated).
-- OS/Base (Todo)
+- OS/Base (Done)
   - Ubuntu 22.04/24.04; ufw allow from VM1 only (and SSH admin IPs).
-- NVIDIA stack (Todo)
+- NVIDIA stack (Done)
   - Install NVIDIA driver (550+), CUDA 12.6; verify `nvidia-smi`.
   - Install Docker + Compose plugin, NVIDIA Container Toolkit; test `docker run --gpus all ... nvidia-smi`.
 - Repo & runtime (Todo)

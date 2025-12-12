@@ -1,6 +1,9 @@
 import { io, Socket } from 'socket.io-client';
 
-const SOCKET_URL = 'http://localhost:8000';
+// Backend WebSocket URL - set via environment variable for production
+// For local development: http://localhost:49101
+// For production: http://<GPU-VM-IP>:49101 or use reverse proxy
+const SOCKET_URL = import.meta.env.VITE_BACKEND_URL || 'http://192.168.0.50:49101';
 
 class SocketService {
   private socket: Socket | null = null;

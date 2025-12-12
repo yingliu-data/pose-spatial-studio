@@ -4,7 +4,7 @@ import json
 from utils.locate_path import get_project_root
 
 HOST = os.getenv("HOST", "0.0.0.0")
-PORT = int(os.getenv("PORT", 8000))
+PORT = int(os.getenv("PORT", 49101))  # Using 49101 as it's already exposed in Docker
 DEBUG = True
 
 CORS_ORIGINS = [
@@ -12,11 +12,16 @@ CORS_ORIGINS = [
     "http://localhost:3000",
     "http://127.0.0.1:5173",
     "http://127.0.0.1:3000",
+    "http://localhost:8585",
+    "http://127.0.0.1:8585",
+    # Production frontend domain
+    "https://robot.yingliu.site",
+    "http://robot.yingliu.site",
 ]
 
 SOCKETIO_CORS_ORIGINS = "*"
 
-PROJECT_ROOT = get_project_root(marker_dirs=['backend', 'frontend'])
+PROJECT_ROOT = get_project_root(marker_dirs=['backend'])
 BASE_DIR = PROJECT_ROOT / "backend"
 MODELS_DIR = BASE_DIR / "models"
 OUTPUT_DIR = PROJECT_ROOT / "output"

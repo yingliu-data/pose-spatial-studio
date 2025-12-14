@@ -31,7 +31,7 @@ jobs:
         with:
           ssh-private-key: ${{ secrets.SSH_PRIVATE_KEY }}
       
-      - name: List keys in SSH agent
+      - name: Debug - List keys in SSH agent
         run: ssh-add -l
 
       - name: Install cloudflared
@@ -39,31 +39,7 @@ jobs:
           curl -L https://github.com/cloudflare/cloudflared/releases/latest/download/cloudflared-linux-amd64 -o cloudflared
           sudo mv cloudflared /usr/local/bin/cloudflared
           sudo chmod +x /usr/local/bin/cloudflared
-          
-      - name: Debug verbose SSH
-        run: ssh -vvv pose-backend exit 2>&1 | head -100
-        continue-on-error: true
 
-      - name: Generate test key
-        run: |
-          ssh-keygen -t ed25519 -f ~/.ssh/test_key -N ""
-          echo "Public key for container:"
-          cat ~/.ssh/test_key.pub
-
-      - name: Test with ed25519
-        run: |
-          cat << 'EOF' > ~/.ssh/config
-          Host pose-backend
-            HostName pose-backend-ssh.yingliu.site
-            User root
-            IdentityFile ~/.ssh/test_key
-            IdentitiesOnly yes
-            ProxyCommand cloudflared access ssh --hostname %h
-          EOF
-          chmod 600 ~/.ssh/config
-          # manually add test_key.pub to container's authorized_keys first
-          ssh pose-backend "echo 'Test OK'"
-    
       - name: Configure SSH for Cloudflare
         run: |
           BACKEND_HOST="${{ inputs.backend_host || 'pose-backend-ssh.yingliu.site' }}"
@@ -78,6 +54,9 @@ jobs:
             ProxyCommand cloudflared access ssh --hostname %h
           EOF
           chmod 600 ~/.ssh/config
+
+      - name: Debug - Verify SSH config
+        run: cat ~/.ssh/config
 
       - name: Test SSH via Cloudflare
         run: ssh -o StrictHostKeyChecking=accept-new pose-backend "echo 'SSH OK via Cloudflare'"

@@ -46,15 +46,16 @@ jobs:
         run: |
           mkdir -p ~/.ssh
           cat << 'EOF' >> ~/.ssh/config
-          Host backend-ssh
-            HostName ${{ secrets.BACKEND_SSH_HOST }}
-            User ${{ secrets.BACKEND_SSH_USER }}
+          Host pose-backend
+            HostName pose-backend-ssh.yingliu.site
+            User root
+            IdentitiesOnly yes
             ProxyCommand cloudflared access ssh --hostname %h
           EOF
           chmod 600 ~/.ssh/config
 
       - name: Test SSH via Cloudflare
-        run: ssh -o StrictHostKeyChecking=accept-new backend-ssh "echo 'SSH OK via Cloudflare'"
+        run: ssh -o StrictHostKeyChecking=accept-new pose-backend "echo 'SSH OK via Cloudflare'"
 
       - name: Deploy backend code
         run: |
@@ -66,11 +67,11 @@ jobs:
             --exclude 'logs/' \
             --exclude '.cache/' \
             --exclude 'output/' \
-            backend/ backend-ssh:/root/backend/
+            backend/ pose-backend:/root/backend/
 
       - name: Install dependencies and restart service
         run: |
-          ssh backend-ssh << 'ENDSSH'
+          ssh pose-backend << 'ENDSSH'
             set -e
             cd /root/backend
             

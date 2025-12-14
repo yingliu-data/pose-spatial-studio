@@ -5,18 +5,14 @@ from utils.locate_path import get_project_root
 
 HOST = os.getenv("HOST", "0.0.0.0")
 PORT = int(os.getenv("PORT", 49101))  # Using 49101 as it's already exposed in Docker
-DEBUG = True
+DEBUG = False
 
 CORS_ORIGINS = [
-    "http://localhost:5173",
-    "http://localhost:3000",
-    "http://127.0.0.1:5173",
-    "http://127.0.0.1:3000",
+    # Local development
     "http://localhost:8585",
     "http://127.0.0.1:8585",
-    # Production frontend domain
+    # Production
     "https://robot.yingliu.site",
-    "http://robot.yingliu.site",
 ]
 
 SOCKETIO_CORS_ORIGINS = "*"

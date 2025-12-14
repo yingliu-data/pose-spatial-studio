@@ -69,3 +69,6 @@ backend/models/**/*.bin
 backend/models/**/*.ckpt
 backend/models/**/*.pb
 !backend/models/.gitkeep
+
+# ---- LLM prompt ----
+LLMprompt.md

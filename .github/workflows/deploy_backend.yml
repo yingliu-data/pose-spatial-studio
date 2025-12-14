@@ -43,8 +43,8 @@ jobs:
           mkdir -p ~/.ssh
           cat << EOF >> ~/.ssh/config
           Host pose-backend
-            HostName $BACKEND_HOST
-            User root
+            HostName ${{ secrets.BACKEND_SSH_HOST }}
+            User ${{ secrets.BACKEND_SSH_USER }}
             IdentitiesOnly yes
             ProxyCommand cloudflared access ssh --hostname %h
           EOF

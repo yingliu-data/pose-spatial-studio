@@ -44,10 +44,10 @@ jobs:
         run: |
           BACKEND_HOST="${{ inputs.backend_host || 'pose-backend-ssh.yingliu.site' }}"
           mkdir -p ~/.ssh
-          cat << EOF >> ~/.ssh/config
+          cat << 'EOF' >> ~/.ssh/config
           Host pose-backend
-            HostName ${{ secrets.BACKEND_SSH_HOST }}
-            User ${{ secrets.BACKEND_SSH_USER }}
+            HostName pose-backend-ssh.yingliu.site
+            User root
             IdentitiesOnly yes
             ProxyCommand cloudflared access ssh --hostname %h
           EOF

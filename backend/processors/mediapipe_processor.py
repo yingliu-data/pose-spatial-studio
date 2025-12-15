@@ -25,27 +25,9 @@ MEDIAPIPE_LANDMARK_NAMES = [
 
 LANDMARK_INDEX_DICT = {name: idx for idx, name in enumerate(MEDIAPIPE_LANDMARK_NAMES)}
 
-UPPER_LIMB_CENTRE_INDICES = [
-    LANDMARK_INDEX_DICT["left_shoulder"],
-    LANDMARK_INDEX_DICT["left_elbow"],
-    LANDMARK_INDEX_DICT["left_wrist"],
-    LANDMARK_INDEX_DICT["right_shoulder"],
-    LANDMARK_INDEX_DICT["right_elbow"],
-    LANDMARK_INDEX_DICT["right_wrist"]
-]
-
-LOWER_LIMB_CENTRE_INDICES = [
-    LANDMARK_INDEX_DICT["left_hip"],
-    LANDMARK_INDEX_DICT["left_knee"],
-    LANDMARK_INDEX_DICT["left_ankle"],
-    LANDMARK_INDEX_DICT["right_hip"],
-    LANDMARK_INDEX_DICT["right_knee"],
-    LANDMARK_INDEX_DICT["right_ankle"]
-]
-
 OUTPUT_LANDMARK_NAMES = {
     'hipCentre': ['left_hip', 'right_hip'],
-    'neck': ['neck'],
+    'neck': ['left_shoulder', 'right_shoulder'],
     'leftEye': ['left_eye'],
     'rightEye': ['right_eye'],
     'rightShoulder': ['right_shoulder'],
@@ -63,11 +45,11 @@ OUTPUT_LANDMARK_NAMES = {
     'rightHip': ['right_hip'],
     'rightKnee': ['right_knee'],
     'rightAnkle': ['right_ankle'],
-    'rightToe': ['right_toe'],
+    'rightToe': ['right_foot_index'],
     'leftHip': ['left_hip'],
     'leftKnee': ['left_knee'],
     'leftAnkle': ['left_ankle'],
-    'leftToe': ['left_toe']
+    'leftToe': ['left_foot_index']
 }
 
 
@@ -236,8 +218,6 @@ class MediaPipeProcessor(BaseProcessor):
                 "world_landmarks": world_landmarks,
                 "fk_data": self._fk_processing(world_landmarks),
                 "root_position": [{"x": 0, "y": 0, "z": 0}] * len(world_landmarks),
-                "upper_limb_centre": self._limb_centre(landmarks, "upper"),
-                "lower_limb_centre": self._limb_centre(landmarks, "lower"),
                 "num_poses": len(pose_result.pose_landmarks) if pose_result and pose_result.pose_landmarks else 0},
             "timestamp_ms": timestamp_ms,
             "processor_id": self.processor_id
@@ -252,28 +232,6 @@ class MediaPipeProcessor(BaseProcessor):
             fk_data.append(fk_data_dict)
         return fk_data
 
-    def _limb_centre(self, pose_landmarks: List[Dict[str, float]], limb="upper") -> Dict[str, float]:
-        if not pose_landmarks:
-            return {'2d': None, '3d': None}
-        
-        if limb == "upper":
-            indices = UPPER_LIMB_CENTRE_INDICES
-        elif limb == "lower":
-            indices = LOWER_LIMB_CENTRE_INDICES
-        else:
-            raise ValueError(f"Invalid limb: {limb}")
-        
-        points = np.array(
-            [[pose_landmarks[i]['x'], pose_landmarks[i]['y'], pose_landmarks[i]['z']] for i in indices],
-            dtype=np.float32
-        )
-        mean_point = np.mean(points, axis=0)
-        centre_2d = float(np.linalg.norm(mean_point[:2]))
-        centre_3d = float(np.linalg.norm(mean_point))
-        return {
-            '2d': centre_2d, 
-            '3d': centre_3d
-            }
 
     def cleanup(self):
         if self.landmarker:
@@ -286,5 +244,5 @@ class MediaPipeProcessor(BaseProcessor):
             self.latest_pose_result = None
             self.latest_object_result = None
         self._is_initialized = False
-        logger.info(f"MediaPipe processor {self.processor_id} cleaned up")""
+        logger.info(f"MediaPipe processor {self.processor_id} cleaned up")
 

@@ -1,7 +1,6 @@
 from rtmlib import Wholebody, draw_skeleton
 from typing import Optional, List, Dict, Any
 from processors.base_processor import BaseProcessor
-from processors.mediapipe_processor import UPPER_LIMB_CENTRE_INDICES, LOWER_LIMB_CENTRE_INDICES
 import logging
 import numpy as np
 
@@ -165,30 +164,6 @@ class RTMPoseProcessor(BaseProcessor):
             },
             "timestamp_ms": timestamp_ms,
             "processor_id": self.processor_id
-        }
-    
-    def _limb_centre(self, pose_landmarks: List[Dict[str, float]], limb="upper") -> Dict[str, float]:
-        """Calculate limb centre from pose landmarks."""
-        if not pose_landmarks:
-            return {'2d': None, '3d': None}
-        
-        indices = UPPER_LIMB_CENTRE_INDICES if limb == "upper" else LOWER_LIMB_CENTRE_INDICES
-        
-        if len(pose_landmarks) < max(indices) + 1:
-            return {'2d': None, '3d': None}
-        
-        points = [
-            [pose_landmarks[i]['x'], pose_landmarks[i]['y'], pose_landmarks[i]['z']]
-            for i in indices if i < len(pose_landmarks) and pose_landmarks[i].get('visibility', 0) > 0.1
-        ]
-        
-        if not points:
-            return {'2d': None, '3d': None}
-        
-        mean_point = np.mean(points, axis=0)
-        return {
-            '2d': float(np.linalg.norm(mean_point[:2])),
-            '3d': float(np.linalg.norm(mean_point))
         }
     
     def cleanup(self):

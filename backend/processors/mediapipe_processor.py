@@ -9,6 +9,8 @@ import threading
 import subprocess
 import os
 
+from utils.kinetic import Converter
+
 logger = logging.getLogger(__name__)
 
 MEDIAPIPE_LANDMARK_NAMES = [
@@ -211,25 +213,40 @@ class MediaPipeProcessor(BaseProcessor):
                                                         }
                 world_landmarks.append(world_landmark_dict)
         
+        # Get root position from hip center
+        root_position = None
+        if world_landmarks and len(world_landmarks) > 0:
+            hip_data = world_landmarks[0].get("hipCentre", {})
+            if hip_data:
+                root_position = {
+                    "x": hip_data.get("x", 0),
+                    "y": hip_data.get("y", 0),
+                    "z": hip_data.get("z", 0)
+                }
+        
         return {
             "processed_frame": annotated_frame,
             "data": {
                 "landmarks": landmarks, 
                 "world_landmarks": world_landmarks,
                 "fk_data": self._fk_processing(world_landmarks),
-                "root_position": [{"x": 0, "y": 0, "z": 0}] * len(world_landmarks),
+                "root_position": root_position,
                 "num_poses": len(pose_result.pose_landmarks) if pose_result and pose_result.pose_landmarks else 0},
             "timestamp_ms": timestamp_ms,
             "processor_id": self.processor_id
         }
 
     def _fk_processing(self, world_landmarks: List[Dict[str, float]]) -> Dict[str, float]:
-        fk_data = []
-        for world_landmark in world_landmarks:
-            fk_data_dict = {}
-            for joint, value in world_landmark.items():
-                fk_data_dict[joint] =  { "x": 0, "y": 0, "z": 0, "w": 1, "visibility": 0.92 }
-            fk_data.append(fk_data_dict)
+        if world_landmarks:
+            converter = Converter()
+            fk_data = converter.coordinate2angle(world_landmarks[0])
+            for joint_name, quat_data in fk_data.items():
+                if isinstance(quat_data, dict):
+                    original_joint = world_landmarks[0].get(joint_name, {})
+                    visibility = original_joint.get("visibility", 0.0) if isinstance(original_joint, dict) else 0.0
+                    quat_data["visibility"] = visibility
+        else:
+            fk_data = {}
         return fk_data
 
 

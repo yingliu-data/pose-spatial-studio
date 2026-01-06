@@ -3,8 +3,8 @@ import os
 import json
 from utils.locate_path import get_project_root
 
-HOST = os.getenv("HOST", "0.0.0.0")
-PORT = int(os.getenv("PORT", 49101))
+HOST = os.getenv("POSE_STUDIO_HOST", "0.0.0.0")
+PORT = int(os.getenv("POSE_STUDIO_PORT", 49101))
 DEBUG = False
 
 CORS_ORIGINS = [

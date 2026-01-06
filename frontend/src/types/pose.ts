@@ -48,8 +48,6 @@ export interface PoseData {
   world_landmarks: UnifiedJoints[];
   fk_data?: UnifiedFKData | null;
   root_position?: RootPosition;
-  upper_limb_centre?: LimbCentre;
-  lower_limb_centre?: LimbCentre;
   num_poses: number;
 }
 

@@ -67,7 +67,7 @@ pose-spatial-studio/
 ├── output/                                        [Done] (P1)
 ├── logs/                                          [Done] (P1)
 ├── .cache/                                        [Done] (P1)
-├── PROJECT_STRUCTURE.md                           [Done → minor cleanup) (P1)
+├── PROJECT_STRUCTURE.md                           [Done → minor cleanup] (P1)
 ├── README.md                                      [Done → add deploy notes] (P1)
 └── TIPS.md
 ```

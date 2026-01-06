@@ -25,7 +25,6 @@ export function Skeleton3DViewer({ poseResult, videoElement, processedCanvas }: 
           rootPosition={poseResult.pose_data.root_position ?? null}
           scale={1}
           visibilityThreshold={0.5}
-          debug={false}
         />
       );
     }

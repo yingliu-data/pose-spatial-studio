@@ -1,9 +1,9 @@
-import { useEffect, useRef, useMemo } from 'react';
+import { useRef, useEffect } from 'react';
 import { useGLTF } from '@react-three/drei';
 import { useFrame } from '@react-three/fiber';
 import * as THREE from 'three';
 import { UnifiedFKData, RootPosition, UNIFIED_JOINT_NAMES } from '@/types/pose';
-import { JOINT_TO_BONE_MAP } from './boneMapping';
+import { JOINT_TO_BONE_MAP, MIXAMO_BONES } from './boneMapping';
 
 const AVATAR_GLB_PATH = '/src/avatars/skeleton.glb';
 
@@ -12,81 +12,70 @@ interface AvatarRendererProps {
   rootPosition?: RootPosition | null;
   scale?: number;
   visibilityThreshold?: number;
-  debug?: boolean;
 }
 
 export function AvatarRenderer({
   fkData,
   rootPosition,
   scale = 1,
-  visibilityThreshold = 0.5,
-  debug = false,
+  visibilityThreshold = 0.8,
 }: AvatarRendererProps) {
-  const { scene } = useGLTF(AVATAR_GLB_PATH);
+  const gltf = useGLTF(AVATAR_GLB_PATH);
   const groupRef = useRef<THREE.Group>(null);
   const bonesRef = useRef<Map<string, THREE.Bone>>(new Map());
   const initialRotationsRef = useRef<Map<string, THREE.Quaternion>>(new Map());
   const initialScalesRef = useRef<Map<string, THREE.Vector3>>(new Map());
-  const skeletonHelperRef = useRef<THREE.SkeletonHelper | null>(null);
+  const modelRef = useRef<THREE.Object3D | null>(null);
+  const isInitializedRef = useRef(false);
 
-  const clonedScene = useMemo(() => {
-    const clone = scene.clone(true);
+  useEffect(() => {
+    if (isInitializedRef.current || !groupRef.current) return;
+    
+    const model = gltf.scene;
     const bones = new Map<string, THREE.Bone>();
     const initialRotations = new Map<string, THREE.Quaternion>();
     const initialScales = new Map<string, THREE.Vector3>();
     
-    clone.traverse((object) => {
-      if (object instanceof THREE.Bone) {
-        bones.set(object.name, object);
-        initialRotations.set(object.name, object.quaternion.clone());
-        initialScales.set(object.name, object.scale.clone());
-      }
-      if (object instanceof THREE.Mesh) {
+    model.traverse((object) => {
+      if (object instanceof THREE.SkinnedMesh) {
         object.castShadow = true;
         object.receiveShadow = true;
+        object.frustumCulled = false;
+        
+        if (object.skeleton) {
+          object.skeleton.bones.forEach((bone) => {
+            if (!bones.has(bone.name)) {
+              bones.set(bone.name, bone);
+              initialRotations.set(bone.name, bone.quaternion.clone());
+              initialScales.set(bone.name, bone.scale.clone());
+            }
+          });
+        }
       }
     });
     
+    groupRef.current.add(model);
+    modelRef.current = model;
     bonesRef.current = bones;
     initialRotationsRef.current = initialRotations;
     initialScalesRef.current = initialScales;
-    
-    return clone;
-  }, [scene]);
-
-  useEffect(() => {
-    if (debug && groupRef.current) {
-      let skinnedMesh: THREE.SkinnedMesh | null = null;
-      clonedScene.traverse((object) => {
-        if (object instanceof THREE.SkinnedMesh) {
-          skinnedMesh = object;
-        }
-      });
-      
-      if (skinnedMesh) {
-        const helper = new THREE.SkeletonHelper(skinnedMesh);
-        skeletonHelperRef.current = helper;
-        groupRef.current.add(helper);
-      }
-    }
-    
-    return () => {
-      if (skeletonHelperRef.current && groupRef.current) {
-        groupRef.current.remove(skeletonHelperRef.current);
-        skeletonHelperRef.current = null;
+    isInitializedRef.current = true;
+        return () => {
+      if (groupRef.current && modelRef.current) {
+        groupRef.current.remove(modelRef.current);
       }
     };
-  }, [debug, clonedScene]);
+  }, [gltf.scene]);
 
   useFrame(() => {
-    if (!fkData) return;
-
+    if (!isInitializedRef.current || !fkData) return;
+    
     const bones = bonesRef.current;
     const initialScales = initialScalesRef.current;
     const initialRotations = initialRotationsRef.current;
 
     if (rootPosition) {
-      const hipsBone = bones.get('mixamorig:Hips');
+      const hipsBone = bones.get(MIXAMO_BONES.HIPS);
       if (hipsBone) {
         hipsBone.position.set(rootPosition.x, rootPosition.y, rootPosition.z);
       }
@@ -102,19 +91,31 @@ export function AvatarRenderer({
       const jointData = fkData[jointName];
       const initialScale = initialScales.get(boneName);
 
-      if (!jointData || jointData.visibility < visibilityThreshold) {
-        bone.scale.set(0, 0, 0);
+      if (!jointData || jointData.visibility === undefined || jointData.visibility < visibilityThreshold) {
+        bone.scale.set(1, 1, 1);
       } else {
         if (initialScale) {
           bone.scale.copy(initialScale);
         } else {
           bone.scale.set(1, 1, 1);
         }
-        bone.quaternion.set(jointData.x, jointData.y, jointData.z, jointData.w);
+        
+        const fkQuat = new THREE.Quaternion(
+          jointData.x,
+          jointData.y,
+          jointData.z,
+          jointData.w
+        );
+        
+        const initialRotation = initialRotations.get(boneName);
+        if (initialRotation) {
+          bone.quaternion.copy(initialRotation).multiply(fkQuat);
+        } else {
+          bone.quaternion.copy(fkQuat);
+        }
       }
     }
 
-    // Keep default pose for bones not in unified joints
     const mappedBones = new Set(Object.values(JOINT_TO_BONE_MAP));
     bones.forEach((bone, boneName) => {
       if (!mappedBones.has(boneName as any)) {
@@ -126,14 +127,12 @@ export function AvatarRenderer({
     });
   });
 
-  if (fkData === null) {
+  if (!fkData) {
     return null;
   }
 
   return (
-    <group ref={groupRef} scale={scale}>
-      <primitive object={clonedScene} />
-    </group>
+    <group ref={groupRef} scale={scale} />
   );
 }
 

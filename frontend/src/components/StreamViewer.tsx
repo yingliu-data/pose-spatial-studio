@@ -41,7 +41,7 @@ export function StreamViewer({ socket, stream, poseResult, onVideoElementReady }
       onVideoElementReady(video);
     }
   };
-
+  
   return (
     <div className="view-container" style={{ background: '#1a1a1a', borderRadius: '8px', overflow: 'hidden', border: '2px solid #333', minHeight: '400px', position: 'relative' }}>
       <CameraCapture 

@@ -19,7 +19,9 @@ HIERARCHY = {
     'leftShoulder': ['neck', 'hipCentre'], 'leftElbow': ['leftShoulder', 'neck', 'hipCentre'],
     'leftWrist': ['leftElbow', 'leftShoulder', 'neck', 'hipCentre'],
     'rightShoulder': ['neck', 'hipCentre'], 'rightElbow': ['rightShoulder', 'neck', 'hipCentre'],
-    'rightWrist': ['rightElbow', 'rightShoulder', 'neck', 'hipCentre']
+    'rightWrist': ['rightElbow', 'rightShoulder', 'neck', 'hipCentre'],
+    'leftIndex': ['leftWrist', 'leftElbow', 'leftShoulder', 'neck', 'hipCentre'],
+    'rightIndex': ['rightWrist', 'rightElbow', 'rightShoulder', 'neck', 'hipCentre'],
 }
 
 OFFSET_DIRECTIONS = {
@@ -38,6 +40,8 @@ OFFSET_DIRECTIONS = {
             'rightShoulder': np.array([-1, 0, 0]),
             'rightElbow': np.array([-1, 0, 0]),
             'rightWrist': np.array([-1, 0, 0]),
+            'leftIndex': np.array([1, 0, 0]),
+            'rightIndex': np.array([-1, 0, 0]),
         }
 
 class Converter:
@@ -260,7 +264,7 @@ class Converter:
                 base_skeleton[right_joint] = OFFSET_DIRECTIONS[right_joint] * body_lengths[right_joint]
                 base_skeleton[left_joint] = OFFSET_DIRECTIONS[left_joint] * body_lengths[right_joint]
 
-        for joint_type in ['Hip', 'Knee', 'Ankle', 'Toe', 'Shoulder', 'Elbow', 'Wrist']:
+        for joint_type in ['Hip', 'Knee', 'Ankle', 'Toe', 'Shoulder', 'Elbow', 'Wrist', 'Index']:
             _set_length(joint_type)
         
         base_skeleton['neck'] = OFFSET_DIRECTIONS['neck'] * body_lengths.get('neck', 1)

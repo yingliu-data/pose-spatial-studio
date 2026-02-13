@@ -14,20 +14,20 @@ const SMOOTHING_FACTOR = 0.3; // 0 = no smoothing, 1 = no lag
 const INTERMEDIATE_BONE_MAP: Record<string, string> = {
   [MIXAMO_BONES.LEFT_ARM]: MIXAMO_BONES.LEFT_SHOULDER,
   [MIXAMO_BONES.LEFT_FOREARM]: MIXAMO_BONES.LEFT_SHOULDER,
-  [MIXAMO_BONES.LEFT_HAND]: MIXAMO_BONES.LEFT_SHOULDER,
   [MIXAMO_BONES.RIGHT_ARM]: MIXAMO_BONES.RIGHT_SHOULDER,
   [MIXAMO_BONES.RIGHT_FOREARM]: MIXAMO_BONES.RIGHT_SHOULDER,
-  [MIXAMO_BONES.RIGHT_HAND]: MIXAMO_BONES.RIGHT_SHOULDER,
   // Thigh bones: conjugated by Hips only (same frame level as FK hipCentre)
   [MIXAMO_BONES.LEFT_UP_LEG]: MIXAMO_BONES.HIPS,
   [MIXAMO_BONES.RIGHT_UP_LEG]: MIXAMO_BONES.HIPS,
 };
 
-// Deeper leg bones (knee and below) need conjugation by their parent's accumulated
-// T-pose world quaternion to transform FK rotations into each bone's local frame.
-const LEG_CONJUGATION_BONES = new Set([
+// Deeper bones need conjugation by their parent's accumulated T-pose world quaternion
+// to transform FK rotations into each Mixamo bone's local frame.
+// This applies to: leg bones (knee and below) and hand bones (wrist/hand).
+const WORLD_QUAT_CONJUGATION_BONES = new Set([
   MIXAMO_BONES.LEFT_LEG, MIXAMO_BONES.LEFT_FOOT, MIXAMO_BONES.LEFT_TOE_BASE,
   MIXAMO_BONES.RIGHT_LEG, MIXAMO_BONES.RIGHT_FOOT, MIXAMO_BONES.RIGHT_TOE_BASE,
+  MIXAMO_BONES.LEFT_HAND, MIXAMO_BONES.RIGHT_HAND,
 ]);
 
 // All leg bones need Z-axis rotation negated: FK Z=backward but Mixamo leg bone
@@ -104,7 +104,7 @@ export function AvatarRenderer({
     // Leg chain: compute each bone's parent T-pose world quaternion by accumulating
     // initial rotations from root to parent. This correctly transforms FK rotations
     // (computed in the base body frame) into each Mixamo bone's local frame.
-    for (const boneName of LEG_CONJUGATION_BONES) {
+    for (const boneName of WORLD_QUAT_CONJUGATION_BONES) {
       const bone = bones.get(boneName);
       if (!bone) continue;
 

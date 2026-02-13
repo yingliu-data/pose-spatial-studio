@@ -9,6 +9,10 @@ The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.0.0/).
 
 ### Added
 - Wrist and ankle rotation: compute hand/foot joint angles from finger/toe coordinates
+
+### Fixed
+- Ankle dorsiflexion: correct toe offset direction from downward to forward
+- Wrist rotation: use accumulated parent world quaternion conjugation for hand bones
 - Collapsible sidebar: toggle button to expand streaming window to full screen
 - Automated UI testing with Playwright MCP integration
 - Playwright test suite for pose capture validation

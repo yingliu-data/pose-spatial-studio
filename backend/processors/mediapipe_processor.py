@@ -218,16 +218,20 @@ class MediaPipeProcessor(BaseProcessor):
         if world_landmarks and len(world_landmarks) > 0:
             hip_data = world_landmarks[0].get("hipCentre", {})
             if hip_data:
+                # Transform from MediaPipe (Y-down, Z-forward) to Three.js (Y-up, Z-backward)
                 root_position = {
                     "x": hip_data.get("x", 0),
-                    "y": hip_data.get("y", 0),
-                    "z": hip_data.get("z", 0)
+                    "y": -hip_data.get("y", 0),
+                    "z": -hip_data.get("z", 0)
                 }
         
+        # Convert back to BGR for cv2.imencode in websocket handler
+        annotated_frame = cv2.cvtColor(annotated_frame, cv2.COLOR_RGB2BGR)
+
         return {
             "processed_frame": annotated_frame,
             "data": {
-                "landmarks": landmarks, 
+                "landmarks": landmarks,
                 "world_landmarks": world_landmarks,
                 "fk_data": self._fk_processing(world_landmarks),
                 "root_position": root_position,
@@ -238,8 +242,21 @@ class MediaPipeProcessor(BaseProcessor):
 
     def _fk_processing(self, world_landmarks: List[Dict[str, float]]) -> Dict[str, float]:
         if world_landmarks:
+            # Transform coordinates from MediaPipe (Y-down, Z-forward) to Three.js (Y-up, Z-backward)
+            transformed = {}
+            for joint_name, joint_data in world_landmarks[0].items():
+                if isinstance(joint_data, dict) and all(k in joint_data for k in ["x", "y", "z"]):
+                    transformed[joint_name] = {
+                        "x": joint_data["x"],
+                        "y": -joint_data["y"],
+                        "z": -joint_data["z"],
+                        "visibility": joint_data.get("visibility", 0.0),
+                        "presence": joint_data.get("presence", 0.0),
+                    }
+                else:
+                    transformed[joint_name] = joint_data
             converter = Converter()
-            fk_data = converter.coordinate2angle(world_landmarks[0])
+            fk_data = converter.coordinate2angle(transformed)
             for joint_name, quat_data in fk_data.items():
                 if isinstance(quat_data, dict):
                     original_joint = world_landmarks[0].get(joint_name, {})

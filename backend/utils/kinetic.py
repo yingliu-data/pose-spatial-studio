@@ -32,10 +32,10 @@ OFFSET_DIRECTIONS = {
             'rightAnkle': np.array([0, -1, 0]),
             'rightToe': np.array([0, -1, 0]),
             'neck': np.array([0, -1, 0]),
-            'leftShoulder': np.array([0, 1, 0]), # TODO: change the x axis to see if the angle will be right
+            'leftShoulder': np.array([1, 0, 0]),
             'leftElbow': np.array([1, 0, 0]),
             'leftWrist': np.array([1, 0, 0]),
-            'rightShoulder': np.array([0, -1, 0]),  # TODO: change the x axis to see if the angle will be right
+            'rightShoulder': np.array([-1, 0, 0]),
             'rightElbow': np.array([-1, 0, 0]),
             'rightWrist': np.array([-1, 0, 0]),
         }
@@ -95,13 +95,17 @@ class Converter:
     def angle2quaternion(self, angle: np.ndarray) -> np.ndarray:
         """
         Convert joint angles to quaternion.
+        Uses ZXY rotation order to match Decompose_R_ZXY: q = Rz(yaw) * Rx(pitch) * Ry(roll)
         """
         yaw, pitch, roll = angle
+        cy, sy = cos(yaw/2), sin(yaw/2)
+        cp, sp = cos(pitch/2), sin(pitch/2)
+        cr, sr = cos(roll/2), sin(roll/2)
 
-        qx = sin(roll/2) * cos(pitch/2) * cos(yaw/2) - cos(roll/2) * sin(pitch/2) * sin(yaw/2)
-        qy = cos(roll/2) * sin(pitch/2) * cos(yaw/2) + sin(roll/2) * cos(pitch/2) * sin(yaw/2)
-        qz = cos(roll/2) * cos(pitch/2) * sin(yaw/2) - sin(roll/2) * sin(pitch/2) * cos(yaw/2)
-        qw = cos(roll/2) * cos(pitch/2) * cos(yaw/2) + sin(roll/2) * sin(pitch/2) * sin(yaw/2)
+        qx = cy*sp*cr - sy*cp*sr
+        qy = cy*cp*sr + sy*sp*cr
+        qz = cy*sp*sr + sy*cp*cr
+        qw = cy*cp*cr - sy*sp*sr
 
         return {"x": qx, "y": qy, "z": qz, "w": qw}
         
@@ -311,12 +315,9 @@ class Converter:
         root_w = np.array([0., 0., 1.]) if root_w_norm < 1e-8 else root_w / root_w_norm
 
         C = np.array([root_u, root_v, root_w]).T
-        thetaz, thetay, thetax = Decompose_R_ZYX(C)
-        root_rotation = np.array([thetaz, thetay, thetax])
-        # initial position is facing user
-        # rotate around z axis, front facing as clockwise
-        # rotate around y axis, bottom facing clockwise
-        # rotate around x axis, right facing clockwise
+        # Use ZXY decomposition to match get_rotation_chain and angle2quaternion
+        thetaz, thetay, thetax = Decompose_R_ZXY(C)
+        root_rotation = np.array([thetaz, thetax, thetay])  # [tz, tx, ty] matching ZXY convention
 
         return root_position, root_rotation
 

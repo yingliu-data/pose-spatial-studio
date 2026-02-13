@@ -6,6 +6,29 @@ import { UnifiedFKData, RootPosition, UNIFIED_JOINT_NAMES } from '@/types/pose';
 import { JOINT_TO_BONE_MAP, MIXAMO_BONES } from './boneMapping';
 
 const AVATAR_GLB_PATH = '/src/avatars/skeleton.glb';
+const SMOOTHING_FACTOR = 0.3; // 0 = no smoothing, 1 = no lag
+
+// Map of bones that need conjugation by an ancestor bone's initial rotation.
+// The FK computes rotations in a frame that doesn't include certain Mixamo bones'
+// initial rotations. All descendants of an intermediate bone need the same conjugation.
+// - Arm chain: LeftShoulder/RightShoulder bone sits between Neck and Arm in Mixamo
+// - Leg chain: Hips bone's initial rotation affects direct children (UpLeg bones)
+const INTERMEDIATE_BONE_MAP: Record<string, string> = {
+  [MIXAMO_BONES.LEFT_ARM]: MIXAMO_BONES.LEFT_SHOULDER,
+  [MIXAMO_BONES.LEFT_FOREARM]: MIXAMO_BONES.LEFT_SHOULDER,
+  [MIXAMO_BONES.LEFT_HAND]: MIXAMO_BONES.LEFT_SHOULDER,
+  [MIXAMO_BONES.RIGHT_ARM]: MIXAMO_BONES.RIGHT_SHOULDER,
+  [MIXAMO_BONES.RIGHT_FOREARM]: MIXAMO_BONES.RIGHT_SHOULDER,
+  [MIXAMO_BONES.RIGHT_HAND]: MIXAMO_BONES.RIGHT_SHOULDER,
+  [MIXAMO_BONES.LEFT_UP_LEG]: MIXAMO_BONES.HIPS,
+  [MIXAMO_BONES.LEFT_LEG]: MIXAMO_BONES.HIPS,
+  [MIXAMO_BONES.LEFT_FOOT]: MIXAMO_BONES.HIPS,
+  [MIXAMO_BONES.LEFT_TOE_BASE]: MIXAMO_BONES.HIPS,
+  [MIXAMO_BONES.RIGHT_UP_LEG]: MIXAMO_BONES.HIPS,
+  [MIXAMO_BONES.RIGHT_LEG]: MIXAMO_BONES.HIPS,
+  [MIXAMO_BONES.RIGHT_FOOT]: MIXAMO_BONES.HIPS,
+  [MIXAMO_BONES.RIGHT_TOE_BASE]: MIXAMO_BONES.HIPS,
+};
 
 interface AvatarRendererProps {
   fkData: UnifiedFKData | null;
@@ -27,21 +50,26 @@ export function AvatarRenderer({
   const initialScalesRef = useRef<Map<string, THREE.Vector3>>(new Map());
   const modelRef = useRef<THREE.Object3D | null>(null);
   const isInitializedRef = useRef(false);
+  const prevQuaternionsRef = useRef<Map<string, THREE.Quaternion>>(new Map());
+  const prevPositionRef = useRef<THREE.Vector3>(new THREE.Vector3());
+  // Pre-computed inverse initial rotations for intermediate bones
+  const intermediateInverseRef = useRef<Map<string, THREE.Quaternion>>(new Map());
+  const intermediateRotationRef = useRef<Map<string, THREE.Quaternion>>(new Map());
 
   useEffect(() => {
     if (isInitializedRef.current || !groupRef.current) return;
-    
+
     const model = gltf.scene;
     const bones = new Map<string, THREE.Bone>();
     const initialRotations = new Map<string, THREE.Quaternion>();
     const initialScales = new Map<string, THREE.Vector3>();
-    
+
     model.traverse((object) => {
       if (object instanceof THREE.SkinnedMesh) {
         object.castShadow = true;
         object.receiveShadow = true;
         object.frustumCulled = false;
-        
+
         if (object.skeleton) {
           object.skeleton.bones.forEach((bone) => {
             if (!bones.has(bone.name)) {
@@ -53,12 +81,25 @@ export function AvatarRenderer({
         }
       }
     });
-    
+
+    // Pre-compute inverse rotations for intermediate bones
+    const intermediateInverse = new Map<string, THREE.Quaternion>();
+    const intermediateRotation = new Map<string, THREE.Quaternion>();
+    for (const [mappedBone, intermediateBone] of Object.entries(INTERMEDIATE_BONE_MAP)) {
+      const intRotation = initialRotations.get(intermediateBone);
+      if (intRotation) {
+        intermediateInverse.set(mappedBone, intRotation.clone().invert());
+        intermediateRotation.set(mappedBone, intRotation.clone());
+      }
+    }
+
     groupRef.current.add(model);
     modelRef.current = model;
     bonesRef.current = bones;
     initialRotationsRef.current = initialRotations;
     initialScalesRef.current = initialScales;
+    intermediateInverseRef.current = intermediateInverse;
+    intermediateRotationRef.current = intermediateRotation;
     isInitializedRef.current = true;
         return () => {
       if (groupRef.current && modelRef.current) {
@@ -69,15 +110,20 @@ export function AvatarRenderer({
 
   useFrame(() => {
     if (!isInitializedRef.current || !fkData) return;
-    
+
     const bones = bonesRef.current;
     const initialScales = initialScalesRef.current;
     const initialRotations = initialRotationsRef.current;
+    const prevQuaternions = prevQuaternionsRef.current;
+    const intermediateInverse = intermediateInverseRef.current;
+    const intermediateRotations = intermediateRotationRef.current;
 
     if (rootPosition) {
       const hipsBone = bones.get(MIXAMO_BONES.HIPS);
       if (hipsBone) {
-        hipsBone.position.set(rootPosition.x, rootPosition.y, rootPosition.z);
+        const targetPos = new THREE.Vector3(rootPosition.x, rootPosition.y, rootPosition.z);
+        prevPositionRef.current.lerp(targetPos, SMOOTHING_FACTOR);
+        hipsBone.position.copy(prevPositionRef.current);
       }
     }
 
@@ -99,19 +145,38 @@ export function AvatarRenderer({
         } else {
           bone.scale.set(1, 1, 1);
         }
-        
-        const fkQuat = new THREE.Quaternion(
+
+        const targetQuat = new THREE.Quaternion(
           jointData.x,
           jointData.y,
           jointData.z,
           jointData.w
         );
-        
-        const initialRotation = initialRotations.get(boneName);
-        if (initialRotation) {
-          bone.quaternion.copy(initialRotation).multiply(fkQuat);
+
+        // SLERP smoothing: interpolate between previous and target quaternion
+        const prevQuat = prevQuaternions.get(boneName);
+        let smoothedQuat: THREE.Quaternion;
+        if (prevQuat) {
+          smoothedQuat = prevQuat.clone().slerp(targetQuat, SMOOTHING_FACTOR);
         } else {
-          bone.quaternion.copy(fkQuat);
+          smoothedQuat = targetQuat.clone();
+        }
+        prevQuaternions.set(boneName, smoothedQuat.clone());
+
+        const initialRotation = initialRotations.get(boneName);
+        const intInv = intermediateInverse.get(boneName);
+        const intRot = intermediateRotations.get(boneName);
+
+        if (intInv && intRot && initialRotation) {
+          // Conjugate FK quat by ancestor bone's initial rotation
+          // Formula: bone.quat = R_ancestor^(-1) * fkQuat * R_ancestor * R_initial
+          const conjugated = intInv.clone().multiply(smoothedQuat).multiply(intRot);
+          bone.quaternion.copy(conjugated).multiply(initialRotation);
+        } else if (initialRotation) {
+          // Other bones: apply FK rotation in bone's local frame
+          bone.quaternion.copy(initialRotation).multiply(smoothedQuat);
+        } else {
+          bone.quaternion.copy(smoothedQuat);
         }
       }
     }

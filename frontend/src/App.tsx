@@ -19,6 +19,7 @@ function App() {
   const { socket, connected, poseResults, clearPoseResult, flushStream } = useWebSocket();
   const [streams, setStreams] = useState<Stream[]>([]);
   const [selectedStream, setSelectedStream] = useState<string | null>(null);
+  const [sidebarCollapsed, setSidebarCollapsed] = useState(false);
 
   const addStream = (
     streamId: string, 
@@ -53,16 +54,25 @@ function App() {
       </header>
 
       <div className="app-content">
-        <aside className="sidebar">
-          <Controls
-            streams={streams}
-            selectedStream={selectedStream}
-            onStreamSelect={setSelectedStream}
-            onAddStream={addStream}
-            onRemoveStream={removeStream}
-            connected={connected}
-            socket={socket}
-          />
+        <aside className={`sidebar ${sidebarCollapsed ? 'sidebar-collapsed' : ''}`}>
+          <button
+            className="sidebar-toggle"
+            onClick={() => setSidebarCollapsed(prev => !prev)}
+            title={sidebarCollapsed ? 'Show sidebar' : 'Hide sidebar'}
+          >
+            {sidebarCollapsed ? '\u25B6' : '\u25C0'}
+          </button>
+          {!sidebarCollapsed && (
+            <Controls
+              streams={streams}
+              selectedStream={selectedStream}
+              onStreamSelect={setSelectedStream}
+              onAddStream={addStream}
+              onRemoveStream={removeStream}
+              connected={connected}
+              socket={socket}
+            />
+          )}
         </aside>
 
         <main className="main-content">

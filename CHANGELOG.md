@@ -8,6 +8,7 @@ The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.0.0/).
 
 
 ### Added
+- Collapsible sidebar: toggle button to expand streaming window to full screen
 - Automated UI testing with Playwright MCP integration
 - Playwright test suite for pose capture validation
 - Test infrastructure: playwright.config.ts and test scripts

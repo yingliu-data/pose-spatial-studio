@@ -86,6 +86,30 @@ body {
   display: flex;
   flex-direction: column;
   overflow-y: auto;
+  transition: width 0.3s ease;
+}
+
+.sidebar-collapsed {
+  width: 48px;
+  overflow: hidden;
+}
+
+.sidebar-toggle {
+  background: #2a2a2a;
+  border: none;
+  color: #aaa;
+  padding: 12px;
+  cursor: pointer;
+  font-size: 14px;
+  text-align: center;
+  border-bottom: 1px solid #333;
+  transition: background 0.2s;
+  flex-shrink: 0;
+}
+
+.sidebar-toggle:hover {
+  background: #333;
+  color: #fff;
 }
 
 .controls {

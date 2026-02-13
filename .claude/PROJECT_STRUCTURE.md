@@ -64,11 +64,24 @@ pose-spatial-studio/
 │   ├── monitoring/ (Prometheus, Grafana)          [Todo] (P1)
 │   └── systemd/ (service units)                   [Todo] (P1)
 │
+├── .claude/                                       [Claude Code configuration]
+│   ├── PROJECT_STRUCTURE.md                       [Done] (This file)
+│   ├── PLAYWRIGHT_SETUP.md                        [Done] (Testing setup guide)
+│   ├── TODO.md                                    [Done] (Project todos)
+│   └── skills/                                    [Development workflows]
+│       └── develop/SKILL.md                       [Done] (Dev workflow)
+│
+├── tests/                                         [Done] (Testing infrastructure)
+│   ├── pose-validation.spec.ts                    [Done] (Playwright test suite)
+│   └── README.md                                  [Done] (Testing guide)
+│
+├── playwright.config.ts                           [Done] (Playwright configuration)
+├── package.json                                   [Done] (Test dependencies & scripts)
+├── CHANGELOG.md                                   [Done] (Version history)
+├── README.md                                      [Done] (Project overview)
 ├── output/                                        [Done] (P1)
 ├── logs/                                          [Done] (P1)
 ├── .cache/                                        [Done] (P1)
-├── PROJECT_STRUCTURE.md                           [Done → minor cleanup] (P1)
-├── README.md                                      [Done → add deploy notes] (P1)
 └── TIPS.md
 ```
 
@@ -199,6 +212,47 @@ MAX_STREAMS = 10
 **Backend:** Python 3.13, FastAPI, Socket.IO, MediaPipe, OpenCV, NumPy
 
 **Frontend:** React 18, TypeScript, Three.js, React Three Fiber, Socket.IO Client, Vite
+
+**Testing:** Playwright (automated UI testing), Playwright MCP (Claude Code integration)
+
+## Testing Infrastructure
+
+### Playwright Automated Testing
+
+**Configuration (playwright.config.ts):**
+- Multi-browser support (Chrome, Firefox, Safari)
+- Auto-starts backend and frontend servers
+- Screenshot and video capture on failure
+- HTML test reports
+
+**Test Suite (tests/pose-validation.spec.ts):**
+- Application load validation
+- Camera name input testing
+- Camera selection testing
+- Full pose capture workflow
+- Avatar renderer validation
+- Pose movement detection
+- Acceptance criteria validation
+
+**Running Tests:**
+```bash
+npm test                # Run all tests
+npm run test:headed     # Run with visible browser
+npm run test:debug      # Debug mode
+npm run test:report     # View HTML report
+```
+
+**Playwright MCP Integration:**
+Claude Code can run tests using Playwright MCP:
+```
+Use ToolSearch with query: "playwright"
+Ask Claude: "Run the pose validation tests"
+```
+
+**Test Results:**
+- Screenshots saved to `test-results/`
+- Videos saved on test failure
+- HTML reports viewable with `npm run test:report`
 
 ## Extension Guide
 

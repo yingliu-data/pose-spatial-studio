@@ -1,0 +1,24 @@
+{
+  "name": "pose-spatial-studio",
+  "version": "1.0.0",
+  "description": "Pose Spatial Studio - 3D pose detection and avatar rendering",
+  "private": true,
+  "scripts": {
+    "test": "playwright test",
+    "test:headed": "playwright test --headed",
+    "test:debug": "playwright test --debug",
+    "test:ui": "playwright test --ui",
+    "test:report": "playwright show-report",
+    "playwright:install": "playwright install"
+  },
+  "devDependencies": {
+    "@playwright/test": "^1.58.2",
+    "@types/node": "^22.0.0"
+  },
+  "keywords": [
+    "pose-detection",
+    "3d",
+    "avatar",
+    "spatial-computing"
+  ]
+}

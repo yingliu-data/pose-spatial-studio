@@ -194,7 +194,7 @@ Add an entry to the appropriate `CHANGELOG.md` file:
 
 **Format:**
 ```markdown
-## <version> - <Month Year>
+## <version> - <Day Month Year>
 
 - <brief feature summary (under 10 words)>: <Title>
 ```

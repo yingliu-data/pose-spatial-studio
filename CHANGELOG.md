@@ -6,12 +6,16 @@ The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.0.0/).
 
 ## Unreleased
 
+
 ### Added
 - Automated UI testing with Playwright MCP integration
 - Playwright test suite for pose capture validation
 - Test infrastructure: playwright.config.ts and test scripts
 - Comprehensive testing documentation (tests/README.md)
 - NPM scripts for running tests (test, test:headed, test:debug, test:report)
+
+### Fixed
+- Knee rotation inversion: use parent's accumulated T-pose world quaternion for leg bone conjugation
 
 ### Changed
 - Updated development workflow (.claude/skills/develop/SKILL.md) to include automated testing option in Step 6

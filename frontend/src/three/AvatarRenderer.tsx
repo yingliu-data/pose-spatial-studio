@@ -8,11 +8,9 @@ import { JOINT_TO_BONE_MAP, MIXAMO_BONES } from './boneMapping';
 const AVATAR_GLB_PATH = '/src/avatars/skeleton.glb';
 const SMOOTHING_FACTOR = 0.3; // 0 = no smoothing, 1 = no lag
 
-// Map of bones that need conjugation by an ancestor bone's initial rotation.
-// The FK computes rotations in a frame that doesn't include certain Mixamo bones'
-// initial rotations. All descendants of an intermediate bone need the same conjugation.
-// - Arm chain: LeftShoulder/RightShoulder bone sits between Neck and Arm in Mixamo
-// - Leg chain: Hips bone's initial rotation affects direct children (UpLeg bones)
+// Arm chain: LeftShoulder/RightShoulder bone sits between Spine2 and Arm in Mixamo
+// but the FK chain skips it, so all arm descendants need conjugation by the
+// intermediate bone's initial rotation.
 const INTERMEDIATE_BONE_MAP: Record<string, string> = {
   [MIXAMO_BONES.LEFT_ARM]: MIXAMO_BONES.LEFT_SHOULDER,
   [MIXAMO_BONES.LEFT_FOREARM]: MIXAMO_BONES.LEFT_SHOULDER,
@@ -20,15 +18,25 @@ const INTERMEDIATE_BONE_MAP: Record<string, string> = {
   [MIXAMO_BONES.RIGHT_ARM]: MIXAMO_BONES.RIGHT_SHOULDER,
   [MIXAMO_BONES.RIGHT_FOREARM]: MIXAMO_BONES.RIGHT_SHOULDER,
   [MIXAMO_BONES.RIGHT_HAND]: MIXAMO_BONES.RIGHT_SHOULDER,
+  // Thigh bones: conjugated by Hips only (same frame level as FK hipCentre)
   [MIXAMO_BONES.LEFT_UP_LEG]: MIXAMO_BONES.HIPS,
-  [MIXAMO_BONES.LEFT_LEG]: MIXAMO_BONES.HIPS,
-  [MIXAMO_BONES.LEFT_FOOT]: MIXAMO_BONES.HIPS,
-  [MIXAMO_BONES.LEFT_TOE_BASE]: MIXAMO_BONES.HIPS,
   [MIXAMO_BONES.RIGHT_UP_LEG]: MIXAMO_BONES.HIPS,
-  [MIXAMO_BONES.RIGHT_LEG]: MIXAMO_BONES.HIPS,
-  [MIXAMO_BONES.RIGHT_FOOT]: MIXAMO_BONES.HIPS,
-  [MIXAMO_BONES.RIGHT_TOE_BASE]: MIXAMO_BONES.HIPS,
 };
+
+// Deeper leg bones (knee and below) need conjugation by their parent's accumulated
+// T-pose world quaternion to transform FK rotations into each bone's local frame.
+const LEG_CONJUGATION_BONES = new Set([
+  MIXAMO_BONES.LEFT_LEG, MIXAMO_BONES.LEFT_FOOT, MIXAMO_BONES.LEFT_TOE_BASE,
+  MIXAMO_BONES.RIGHT_LEG, MIXAMO_BONES.RIGHT_FOOT, MIXAMO_BONES.RIGHT_TOE_BASE,
+]);
+
+// All leg bones need Z-axis rotation negated: FK Z=backward but Mixamo leg bone
+// local Z=forward, so Z-axis rotations (abduction/adduction) appear inverted.
+const LEG_Z_NEGATE_BONES: Set<string> = new Set([
+  MIXAMO_BONES.LEFT_UP_LEG, MIXAMO_BONES.RIGHT_UP_LEG,
+  MIXAMO_BONES.LEFT_LEG, MIXAMO_BONES.LEFT_FOOT, MIXAMO_BONES.LEFT_TOE_BASE,
+  MIXAMO_BONES.RIGHT_LEG, MIXAMO_BONES.RIGHT_FOOT, MIXAMO_BONES.RIGHT_TOE_BASE,
+]);
 
 interface AvatarRendererProps {
   fkData: UnifiedFKData | null;
@@ -82,7 +90,7 @@ export function AvatarRenderer({
       }
     });
 
-    // Pre-compute inverse rotations for intermediate bones
+    // Pre-compute inverse rotations for intermediate bones (arm chain)
     const intermediateInverse = new Map<string, THREE.Quaternion>();
     const intermediateRotation = new Map<string, THREE.Quaternion>();
     for (const [mappedBone, intermediateBone] of Object.entries(INTERMEDIATE_BONE_MAP)) {
@@ -91,6 +99,29 @@ export function AvatarRenderer({
         intermediateInverse.set(mappedBone, intRotation.clone().invert());
         intermediateRotation.set(mappedBone, intRotation.clone());
       }
+    }
+
+    // Leg chain: compute each bone's parent T-pose world quaternion by accumulating
+    // initial rotations from root to parent. This correctly transforms FK rotations
+    // (computed in the base body frame) into each Mixamo bone's local frame.
+    for (const boneName of LEG_CONJUGATION_BONES) {
+      const bone = bones.get(boneName);
+      if (!bone) continue;
+
+      const parentWorldQuat = new THREE.Quaternion();
+      let current: THREE.Object3D | null = bone.parent;
+      const chain: THREE.Quaternion[] = [];
+      while (current && current instanceof THREE.Bone) {
+        const initRot = initialRotations.get(current.name);
+        if (initRot) chain.unshift(initRot.clone());
+        current = current.parent;
+      }
+      for (const q of chain) {
+        parentWorldQuat.multiply(q);
+      }
+
+      intermediateInverse.set(boneName, parentWorldQuat.clone().invert());
+      intermediateRotation.set(boneName, parentWorldQuat.clone());
     }
 
     groupRef.current.add(model);
@@ -153,6 +184,11 @@ export function AvatarRenderer({
           jointData.w
         );
 
+        // Negate Z-axis rotation for leg bones: FK Z=backward, Mixamo Z=forward
+        if (LEG_Z_NEGATE_BONES.has(boneName)) {
+          targetQuat.z = -targetQuat.z;
+        }
+
         // SLERP smoothing: interpolate between previous and target quaternion
         const prevQuat = prevQuaternions.get(boneName);
         let smoothedQuat: THREE.Quaternion;
@@ -168,8 +204,9 @@ export function AvatarRenderer({
         const intRot = intermediateRotations.get(boneName);
 
         if (intInv && intRot && initialRotation) {
-          // Conjugate FK quat by ancestor bone's initial rotation
-          // Formula: bone.quat = R_ancestor^(-1) * fkQuat * R_ancestor * R_initial
+          // Conjugate FK quat by the pre-computed intermediate rotation:
+          // Arms: R_intermediate^(-1) * fkQuat * R_intermediate * R_initial
+          // Legs: R_parentWorld^(-1) * fkQuat * R_parentWorld * R_initial
           const conjugated = intInv.clone().multiply(smoothedQuat).multiply(intRot);
           bone.quaternion.copy(conjugated).multiply(initialRotation);
         } else if (initialRotation) {

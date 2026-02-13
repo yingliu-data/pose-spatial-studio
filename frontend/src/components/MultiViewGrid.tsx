@@ -121,7 +121,7 @@ export function MultiViewGrid({ socket, streams, poseResults, selectedStream, on
 
   return (
     <div ref={containerRef} style={{ display: 'flex', flexDirection: 'column', height: '100%' }}>
-      <div style={{ height: `${gridHeight}%`, display: 'flex', flexDirection: 'column', overflow: 'hidden' }}>
+      <div style={{ height: hasVideoStreams ? `${gridHeight}%` : '100%', display: 'flex', flexDirection: 'column', overflow: 'hidden' }}>
         <div className="multi-view-grid" style={{ display: 'grid', gridTemplateColumns: `repeat(${getGridColumns(displayStreams.length)}, 1fr)`, gap: '16px', padding: '16px', flex: 1, overflow: 'auto' }}>
           {displayStreams.map((stream) => (
             <StreamViewer 

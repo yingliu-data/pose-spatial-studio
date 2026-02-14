@@ -1,6 +1,6 @@
 {
     "image_processor": {
-        "flip_horizontal": false
+        "flip_horizontal": true
     },
 
     "data_processor": {
@@ -8,7 +8,7 @@
         "preprocessing_mode": "single_frame",
         "window_size": 2,
         "frame_differencing_enabled": false,
-        "greyscale_enabled": true,
+        "greyscale_enabled": false,
         "_comments": {
             "preprocessing_mode": "Options: 'sliding_window', 'single_frame'",
             "pose_feature_extraction_mode": "Options: 'landmarks', 'heatmaps', 'joint_angles'",

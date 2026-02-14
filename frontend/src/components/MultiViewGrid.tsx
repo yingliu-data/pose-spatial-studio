@@ -121,7 +121,7 @@ export function MultiViewGrid({ socket, streams, poseResults, selectedStream, on
 
   return (
     <div ref={containerRef} style={{ display: 'flex', flexDirection: 'column', height: '100%' }}>
-      <div style={{ height: `${gridHeight}%`, display: 'flex', flexDirection: 'column', overflow: 'hidden' }}>
+      <div style={{ height: hasVideoStreams ? `${gridHeight}%` : '100%', display: 'flex', flexDirection: 'column', overflow: 'hidden' }}>
         <div className="multi-view-grid" style={{ display: 'grid', gridTemplateColumns: `repeat(${getGridColumns(displayStreams.length)}, 1fr)`, gap: '16px', padding: '16px', flex: 1, overflow: 'auto' }}>
           {displayStreams.map((stream) => (
             <StreamViewer 
@@ -135,14 +135,14 @@ export function MultiViewGrid({ socket, streams, poseResults, selectedStream, on
         </div>
         
         {hasVideoStreams && (
-          <div style={{ padding: '16px', background: '#2a2a2a', borderTop: '1px solid #444', display: 'flex', alignItems: 'center', gap: '16px' }}>
-            <button onClick={togglePlayPause} style={{ background: '#4CAF50', border: 'none', color: 'white', padding: '10px 20px', borderRadius: '4px', cursor: 'pointer', fontWeight: 'bold' }}>
+          <div style={{ padding: '14px 24px', background: 'rgba(255, 255, 255, 0.05)', backdropFilter: 'blur(60px) saturate(180%)', WebkitBackdropFilter: 'blur(60px) saturate(180%)', borderTop: '1px solid rgba(255, 255, 255, 0.07)', display: 'flex', alignItems: 'center', gap: '16px' }}>
+            <button onClick={togglePlayPause} className="btn btn-primary" style={{ padding: '10px 20px' }}>
               {isPlaying ? '⏸ Pause' : '▶ Play'}
             </button>
-            <span style={{ color: '#aaa', fontSize: '14px', minWidth: '100px' }}>
+            <span style={{ color: 'rgba(255, 255, 255, 0.5)', fontSize: '13px', minWidth: '100px', fontWeight: 500, fontVariantNumeric: 'tabular-nums' }}>
               {Math.floor(currentTime)}s / {Math.floor(duration)}s
             </span>
-            <input type="range" min="0" max={duration || 0} value={currentTime} onChange={handleSeek} step="0.1" style={{ flex: 1, cursor: 'pointer' }} />
+            <input type="range" min="0" max={duration || 0} value={currentTime} onChange={handleSeek} step="0.1" style={{ flex: 1, cursor: 'pointer', accentColor: '#0a84ff' }} />
           </div>
         )}
       </div>

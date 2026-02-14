@@ -3,10 +3,10 @@ name: Deploy backend
 on:
   workflow_dispatch:
     inputs:
-      force_deploy:
-        description: 'Run deploy even without merged PR from develop'
+      backend_host:
+        description: 'Backend SSH hostname'
         required: false
-        default: 'true'
+        default: 'pose-backend-ssh.yingliu.site'
   pull_request:
     branches:
       - main
@@ -19,17 +19,12 @@ on:
 jobs:
   deploy:
     if: >
-      (github.event_name == 'pull_request' &&
-       github.event.pull_request.merged == true &&
-       github.event.pull_request.head.ref == 'develop') ||
-      (github.event_name == 'workflow_dispatch' &&
-       inputs.force_deploy == 'true')
+      github.event_name == 'workflow_dispatch' ||
+      (github.event_name == 'pull_request' && github.event.pull_request.merged == true)
     runs-on: ubuntu-latest
     steps:
       - name: Checkout
         uses: actions/checkout@v4
-        with:
-          ref: ${{ github.event.pull_request.base.ref || github.ref }}
 
       - name: Setup SSH agent
         uses: webfactory/ssh-agent@v0.9.0
@@ -44,10 +39,11 @@ jobs:
 
       - name: Configure SSH for Cloudflare
         run: |
+          BACKEND_HOST="${{ inputs.backend_host || 'pose-backend-ssh.yingliu.site' }}"
           mkdir -p ~/.ssh
-          cat << 'EOF' >> ~/.ssh/config
+          cat << EOF >> ~/.ssh/config
           Host pose-backend
-            HostName pose-backend-ssh.yingliu.site
+            HostName $BACKEND_HOST
             User root
             IdentitiesOnly yes
             ProxyCommand cloudflared access ssh --hostname %h
@@ -57,8 +53,11 @@ jobs:
       - name: Test SSH via Cloudflare
         run: ssh -o StrictHostKeyChecking=accept-new pose-backend "echo 'SSH OK via Cloudflare'"
 
-      - name: Deploy backend code
+      - name: Deploy to container and restart
         run: |
+          CONTAINER=pose-spatial-studio-backend
+
+          # Sync backend files to host staging area
           rsync -az --delete \
             --exclude '.venv*' \
             --exclude '__pycache__' \
@@ -67,34 +66,35 @@ jobs:
             --exclude 'logs/' \
             --exclude '.cache/' \
             --exclude 'output/' \
-            backend/ pose-backend:/root/backend/
+            backend/ pose-backend:/tmp/backend-staging/
 
-      - name: Install dependencies and restart service
-        run: |
-          ssh pose-backend << 'ENDSSH'
+          # Copy into container, install deps, restart app
+          ssh pose-backend << ENDSSH
             set -e
-            cd /root/backend
-            
+
+            echo "=== Copying files into container ==="
+            docker cp /tmp/backend-staging/. $CONTAINER:/root/backend/
+
             echo "=== Installing dependencies ==="
-            source .venv/bin/activate
-            pip install -r requirements.txt -q
-            
-            echo "=== Setting up systemd service ==="
-            cp pose-backend.service /etc/systemd/system/
-            systemctl daemon-reload
-            systemctl enable pose-backend.service
-            systemctl restart pose-backend.service
-            
+            docker exec $CONTAINER bash -c "cd /root/backend && pip install -r requirements.txt -q"
+
+            echo "=== Restarting app.py ==="
+            docker exec $CONTAINER bash -c "pkill -f 'python.*app.py' || true"
+            sleep 2
+            docker exec -d $CONTAINER bash -c "cd /root/backend && mkdir -p logs && python app.py >> logs/app.log 2>&1"
+
             echo "=== Waiting for startup ==="
             sleep 5
-            
+
             echo "=== Health check ==="
             if curl -s http://localhost:49101/health > /dev/null; then
                 echo "✓ Backend is healthy!"
                 curl -s http://localhost:49101/health
             else
                 echo "✗ Backend health check failed!"
-                journalctl -u pose-backend.service --no-pager -n 50
+                docker exec $CONTAINER bash -c "tail -50 /root/backend/logs/app.log 2>/dev/null" || true
                 exit 1
             fi
+
+            rm -rf /tmp/backend-staging
           ENDSSH

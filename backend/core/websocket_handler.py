@@ -140,10 +140,11 @@ class WebSocketHandler:
                 processor_pipeline = self.processors[processor_id]
 
                 pose_data = None
+                processed_frame = frame
                 if 'image_processor' in processor_pipeline:
-                    processed_frame = processor_pipeline['image_processor'].process_frame(frame, timestamp)
+                    processed_frame = processor_pipeline['image_processor'].process_frame(processed_frame, timestamp)
                 if 'date_processor' in processor_pipeline:
-                    processed_frame = processor_pipeline['date_processor'].process_frame(frame, timestamp)
+                    processed_frame = processor_pipeline['date_processor'].process_frame(processed_frame, timestamp)
                 if 'pose_processor' in processor_pipeline:
                     result = processor_pipeline['pose_processor'].process_frame(processed_frame, timestamp)
                     processed_frame = None if result is None else result['processed_frame']

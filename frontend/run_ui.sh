@@ -19,6 +19,9 @@ fi
 echo "Installing dependencies..."
 npm install || { echo "Failed to install dependencies"; exit 1; }
 
-echo "Starting development server on http://localhost:8585"
-npm run dev
+# Set backend URL for local development
+export VITE_BACKEND_URL="http://localhost:49101"
 
+echo "Starting development server on http://localhost:8585"
+echo "Connecting to backend at $VITE_BACKEND_URL"
+npm run dev

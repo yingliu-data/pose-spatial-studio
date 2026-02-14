@@ -30,7 +30,7 @@ export function CameraCapture({
   const canvasRef = useRef<HTMLCanvasElement>(null);
   const processedCanvasRef = useRef<HTMLCanvasElement>(null);
   const streamServiceRef = useRef<StreamService | null>(null);
-  const intervalRef = useRef<number | null>(null);
+  const intervalRef = useRef<ReturnType<typeof setInterval> | null>(null);
   const isProcessingFrameRef = useRef<boolean>(false);
   const onVideoReadyRef = useRef(onVideoReady);
   const onProcessedImageReadyRef = useRef(onProcessedImageReady);

@@ -7,10 +7,14 @@ The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.0.0/).
 ## [1.1.1] - 14 February 2026
 
 ### Fixed
+- 3D Viewer GLB load failure in production: move skeleton.glb to public directory so Vite includes it in build output
 - Black screen after creating stream: show live video feed immediately while waiting for backend pose processing
 - VideoPlane texture leak: dispose old texture when switching from video to processed canvas
 - Result timeout too aggressive (2s → 10s): prevents silent frame drops during model cold start
 - flush_stream backend crash: fix dict unpacked as tuple in processor pipeline access
+- process_frame crash: skip emit when buffer is None instead of crashing on base64.b64encode(None)
+- DataProcessor FPS throttling: update last_processed_time so throttle actually works
+- numpy.float64 JSON serialization: convert all np.mean() and FK outputs to native Python float for Socket.IO emit
 
 ## [1.1.0] - 2025-02-13
 

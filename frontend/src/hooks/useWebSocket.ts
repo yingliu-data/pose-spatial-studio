@@ -37,21 +37,35 @@ export function useWebSocket(): UseWebSocketReturn {
     const socketInstance = socketService.connect();
     setSocket(socketInstance);
 
-    socketInstance.on('connect', () => setConnected(true));
-    socketInstance.on('disconnect', () => setConnected(false));
-    
+    socketInstance.on('connect', () => {
+      console.log('[WS] Connected, sid:', socketInstance.id);
+      setConnected(true);
+    });
+    socketInstance.on('disconnect', (reason) => {
+      console.warn('[WS] Disconnected, reason:', reason);
+      setConnected(false);
+    });
+
     socketInstance.on('pose_result', (result: PoseResult) => {
-      const age = Date.now() - result.timestamp_ms;
-      if (age > RESULT_TIMEOUT_MS) return;
-      
-      const lastTime = lastUpdateTime.current.get(result.stream_id) || 0;
-      if (result.timestamp_ms >= lastTime) {
-        setPoseResults(prev => new Map(prev).set(result.stream_id, result));
-        lastUpdateTime.current.set(result.stream_id, result.timestamp_ms);
+      try {
+        const age = Date.now() - result.timestamp_ms;
+        console.debug(`[WS] pose_result stream=${result.stream_id} age=${age}ms hasFrame=${!!result.frame} hasPose=${!!result.pose_data}`);
+        if (age > RESULT_TIMEOUT_MS) {
+          console.warn(`[WS] Dropping stale result (age=${age}ms > ${RESULT_TIMEOUT_MS}ms)`);
+          return;
+        }
+
+        const lastTime = lastUpdateTime.current.get(result.stream_id) || 0;
+        if (result.timestamp_ms >= lastTime) {
+          setPoseResults(prev => new Map(prev).set(result.stream_id, result));
+          lastUpdateTime.current.set(result.stream_id, result.timestamp_ms);
+        }
+      } catch (err) {
+        console.error('[WS] Error in pose_result handler:', err);
       }
     });
-    
-    socketInstance.on('error', (error) => console.error('Socket error:', error));
+
+    socketInstance.on('error', (error) => console.error('[WS] Socket error:', error));
 
     return () => socketService.disconnect();
   }, []);

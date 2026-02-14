@@ -1,5 +1,6 @@
 import logging
 from multiprocessing import process
+import json
 
 import cv2
 import numpy as np
@@ -124,43 +125,60 @@ class WebSocketHandler:
                 stream_id = data.get('stream_id')
                 processor_id = f"{sid}_{stream_id}"
                 timestamp = data.get('timestamp_ms', 0)
-                
+                logger.debug(f"[FRAME] Received frame for {stream_id} t={timestamp}")
+
                 if processor_id not in self.processors:
                     logger.warning(f"[ERROR] Processor {processor_id} not found")
                     await self.sio.emit('error', {
                         'message': 'Stream not initialized. Call initialize_stream first.'
                     }, room=sid)
                     return
-                
+
                 frame = self._decode_frame(data.get('frame'))
                 if frame is None:
+                    logger.warning(f"[FRAME] Decode failed for {stream_id}")
                     await self.sio.emit('error', {'message': 'Invalid frame data'}, room=sid)
                     return
-                
+
                 processor_pipeline = self.processors[processor_id]
 
                 pose_data = None
                 processed_frame = frame
                 if 'image_processor' in processor_pipeline:
                     processed_frame = processor_pipeline['image_processor'].process_frame(processed_frame, timestamp)
+                    logger.debug(f"[FRAME] image_processor done")
                 if 'date_processor' in processor_pipeline:
-                    processed_frame = processor_pipeline['date_processor'].process_frame(processed_frame, timestamp)
+                    data_result = processor_pipeline['date_processor'].process_frame(processed_frame, timestamp)
+                    if data_result is not None:
+                        processed_frame = data_result
+                    logger.debug(f"[FRAME] data_processor done, result={'kept' if data_result is not None else 'None (using fallback)'}")
                 if 'pose_processor' in processor_pipeline:
                     result = processor_pipeline['pose_processor'].process_frame(processed_frame, timestamp)
-                    processed_frame = None if result is None else result['processed_frame']
-                    pose_data = None if result is None else result['data']
-                if processed_frame is not None:
-                    _, buffer = cv2.imencode('.jpg', processed_frame, [cv2.IMWRITE_JPEG_QUALITY, 100])
-                else:
-                    buffer = None
-                
-                await self.sio.emit('pose_result', {
+                    if result is not None:
+                        processed_frame = result['processed_frame']
+                        pose_data = result['data']
+                    logger.debug(f"[FRAME] pose_processor done, pose_data={'present' if pose_data else 'None'}")
+
+                _, buffer = cv2.imencode('.jpg', processed_frame, [cv2.IMWRITE_JPEG_QUALITY, 100])
+
+                emit_payload = {
                     'stream_id': stream_id,
                     'frame': base64.b64encode(buffer).decode('utf-8'),
                     'pose_data': pose_data,
                     'timestamp_ms': timestamp
-                }, room=sid)
-                
+                }
+
+                # Pre-flight JSON check: catch numpy types before socketio's internal serializer
+                try:
+                    json.dumps(emit_payload)
+                except TypeError as json_err:
+                    logger.error(f"[FRAME] JSON serialization would fail: {json_err}")
+                    logger.error(f"[FRAME] pose_data types: {self._dump_types(pose_data)}")
+                    emit_payload['pose_data'] = None
+
+                await self.sio.emit('pose_result', emit_payload, room=sid)
+                logger.debug(f"[FRAME] Emitted pose_result for {stream_id}")
+
             except Exception as e:
                 logger.error(f"Error processing frame: {e}", exc_info=True)
                 await self.sio.emit('error', {'message': str(e)}, room=sid)
@@ -192,6 +210,19 @@ class WebSocketHandler:
                 logger.error(f"[FLUSH] Error: {e}")
                 await self.sio.emit('error', {'message': f'Flush error: {str(e)}'}, room=sid)
     
+    @staticmethod
+    def _dump_types(obj, depth=0):
+        """Recursively report non-native types for debugging JSON serialization."""
+        if depth > 4:
+            return "..."
+        if isinstance(obj, dict):
+            return {k: WebSocketHandler._dump_types(v, depth + 1) for k, v in list(obj.items())[:5]}
+        if isinstance(obj, list):
+            return [WebSocketHandler._dump_types(v, depth + 1) for v in obj[:3]]
+        if isinstance(obj, (int, float, str, bool, type(None))):
+            return type(obj).__name__
+        return f"{type(obj).__module__}.{type(obj).__name__}"
+
     def _decode_frame(self, frame_data: str) -> np.ndarray:
         try:
             if frame_data.startswith('data:image'):

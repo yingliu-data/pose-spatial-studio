@@ -107,7 +107,7 @@ class Converter:
         qz = cy*sp*sr + sy*cp*cr
         qw = cy*cp*cr - sy*sp*sr
 
-        return {"x": qx, "y": qy, "z": qz, "w": qw}
+        return {"x": float(qx), "y": float(qy), "z": float(qz), "w": float(qw)}
         
     def _has_minimum_joints(self) -> bool:
         """Check if we have minimum required joints to compute any angles."""

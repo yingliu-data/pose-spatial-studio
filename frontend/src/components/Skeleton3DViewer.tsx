@@ -1,3 +1,4 @@
+import { useEffect, Component, type ReactNode } from 'react';
 import { Canvas } from '@react-three/fiber';
 import { OrbitControls, Grid, PerspectiveCamera } from '@react-three/drei';
 import { VideoPlane } from '@/three/VideoPlane';
@@ -8,6 +9,22 @@ import { AvatarRenderer } from '@/three/AvatarRenderer';
 type RendererType = 'stickball' | 'avatar';
 const ACTIVE_RENDERER: RendererType = 'avatar';
 
+// Error boundary to catch Three.js / Canvas crashes without unmounting the whole app
+class ViewerErrorBoundary extends Component<{ children: ReactNode }, { error: Error | null }> {
+  state = { error: null as Error | null };
+  static getDerivedStateFromError(error: Error) { return { error }; }
+  componentDidCatch(error: Error) { console.error('[3D] Canvas crashed:', error.message); }
+  render() {
+    if (this.state.error) {
+      return <div style={{ color: '#ff6b6b', padding: 20, textAlign: 'center' }}>
+        <div style={{ fontSize: 14, fontWeight: 600 }}>3D Viewer Error</div>
+        <div style={{ fontSize: 12, opacity: 0.7, marginTop: 4 }}>{this.state.error.message}</div>
+      </div>;
+    }
+    return this.props.children;
+  }
+}
+
 interface Skeleton3DViewerProps {
   poseResult: PoseResult | null;
   videoElement: HTMLVideoElement | null;
@@ -15,6 +32,10 @@ interface Skeleton3DViewerProps {
 }
 
 export function Skeleton3DViewer({ poseResult, videoElement, processedCanvas }: Skeleton3DViewerProps) {
+  useEffect(() => {
+    console.log('[3D] Skeleton3DViewer mounted', { hasVideo: !!videoElement, hasCanvas: !!processedCanvas, hasPose: !!poseResult?.pose_data });
+    return () => console.log('[3D] Skeleton3DViewer unmounted');
+  }, []);
   const renderSkeleton = () => {
     if (!poseResult?.pose_data) return null;
 
@@ -43,36 +64,38 @@ export function Skeleton3DViewer({ poseResult, videoElement, processedCanvas }: 
 
   return (
     <div style={{ width: '100%', height: '600px', backgroundColor: '#000' }}>
-      <Canvas>
-        <PerspectiveCamera makeDefault position={[0, 0, 3]} />
-        <OrbitControls enableDamping dampingFactor={0.05} />
-        
-        <ambientLight intensity={0.5} />
-        <directionalLight position={[10, 10, 5]} intensity={1} />
-        <pointLight position={[-10, -10, -5]} intensity={0.5} />
+      <ViewerErrorBoundary>
+        <Canvas>
+          <PerspectiveCamera makeDefault position={[0, 0, 3]} />
+          <OrbitControls enableDamping dampingFactor={0.05} />
 
-        <Grid
-          args={[10, 10]}
-          cellSize={0.5}
-          cellThickness={0.5}
-          cellColor="#6f6f6f"
-          sectionSize={1}
-          sectionThickness={1}
-          sectionColor="#9d4b4b"
-          fadeDistance={25}
-          fadeStrength={1}
-          followCamera={false}
-          position={[0, 0, -0.5]}
-        />
+          <ambientLight intensity={0.5} />
+          <directionalLight position={[10, 10, 5]} intensity={1} />
+          <pointLight position={[-10, -10, -5]} intensity={0.5} />
 
-        {processedCanvas ? (
-          <VideoPlane canvasElement={processedCanvas} />
-        ) : videoElement ? (
-          <VideoPlane videoElement={videoElement} />
-        ) : null}
+          <Grid
+            args={[10, 10]}
+            cellSize={0.5}
+            cellThickness={0.5}
+            cellColor="#6f6f6f"
+            sectionSize={1}
+            sectionThickness={1}
+            sectionColor="#9d4b4b"
+            fadeDistance={25}
+            fadeStrength={1}
+            followCamera={false}
+            position={[0, 0, -0.5]}
+          />
 
-        {renderSkeleton()}
-      </Canvas>
+          {processedCanvas ? (
+            <VideoPlane canvasElement={processedCanvas} />
+          ) : videoElement ? (
+            <VideoPlane videoElement={videoElement} />
+          ) : null}
+
+          {renderSkeleton()}
+        </Canvas>
+      </ViewerErrorBoundary>
     </div>
   );
 }

@@ -49,6 +49,41 @@ export function StreamViewer({ socket, stream, poseResult, onVideoElementReady }
     }
   };
 
+  const renderContent = () => {
+    if (hasData) {
+      console.debug(`[StreamViewer] Rendering Skeleton3DViewer (hasData=true)`);
+      return (
+        <Skeleton3DViewer
+          poseResult={poseResult}
+          videoElement={videoElement}
+          processedCanvas={processedCanvas}
+        />
+      );
+    }
+    if (cameraReady && videoElement) {
+      return (
+        <video
+          ref={(el) => {
+            if (el && videoElement.srcObject) {
+              el.srcObject = videoElement.srcObject;
+              el.play().catch(() => {});
+            }
+          }}
+          style={{ width: '100%', height: '100%', objectFit: 'contain', background: '#000' }}
+          playsInline
+          muted
+          autoPlay
+        />
+      );
+    }
+    return (
+      <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'center', height: '100%', color: 'rgba(255, 255, 255, 0.4)', flexDirection: 'column', gap: '10px', padding: '20px', textAlign: 'center' }}>
+        <div style={{ fontSize: '14px', fontWeight: 600 }}>Initializing camera...</div>
+        <div style={{ fontSize: '12px', color: 'rgba(255, 255, 255, 0.25)' }}>If prompted, please allow camera access</div>
+      </div>
+    );
+  };
+
   return (
     <div className="view-container" style={{ background: 'rgba(0, 0, 0, 0.35)', borderRadius: '24px', overflow: 'hidden', border: '1px solid rgba(255, 255, 255, 0.18)', boxShadow: '0 24px 80px rgba(0, 0, 0, 0.5), inset 0 1px 0 rgba(255, 255, 255, 0.08)', minHeight: '400px', position: 'relative', backdropFilter: 'blur(80px) saturate(200%) brightness(1.1)', WebkitBackdropFilter: 'blur(80px) saturate(200%) brightness(1.1)' }}>
       <CameraCapture
@@ -62,18 +97,7 @@ export function StreamViewer({ socket, stream, poseResult, onVideoElementReady }
         onVideoReady={handleVideoReady}
         onProcessedImageReady={setProcessedCanvas}
       />
-      {cameraReady ? (
-        <Skeleton3DViewer
-          poseResult={poseResult}
-          videoElement={videoElement}
-          processedCanvas={hasData ? processedCanvas : null}
-          />
-      ) : (
-        <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'center', height: '100%', color: 'rgba(255, 255, 255, 0.4)', flexDirection: 'column', gap: '10px', padding: '20px', textAlign: 'center' }}>
-          <div style={{ fontSize: '14px', fontWeight: 600 }}>Initializing camera...</div>
-          <div style={{ fontSize: '12px', color: 'rgba(255, 255, 255, 0.25)' }}>If prompted, please allow camera access</div>
-        </div>
-      )}
+      {renderContent()}
       <div style={{ ...overlayStyle, top: 14, left: 14 }}>{stream.streamId}</div>
       <div style={{ ...overlayStyle, bottom: 14, right: 14 }}>
         <div style={{ display: 'flex', alignItems: 'center', gap: '6px' }}>

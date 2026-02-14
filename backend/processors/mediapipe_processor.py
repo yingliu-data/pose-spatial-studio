@@ -193,11 +193,11 @@ class MediaPipeProcessor(BaseProcessor):
             landmark_dict = {}
             for pose_landmarks in pose_result.pose_landmarks:
                 for output_landmark_name, mediapipe_landmark_names in OUTPUT_LANDMARK_NAMES.items():
-                    landmark_dict[output_landmark_name] = {"x": np.mean([pose_landmarks[LANDMARK_INDEX_DICT[lm]].x for lm in mediapipe_landmark_names]), 
-                                                        "y": np.mean([pose_landmarks[LANDMARK_INDEX_DICT[lm]].y for lm in mediapipe_landmark_names]), 
-                                                        "z": np.mean([pose_landmarks[LANDMARK_INDEX_DICT[lm]].z for lm in mediapipe_landmark_names]), 
-                                                        "visibility": np.mean([pose_landmarks[LANDMARK_INDEX_DICT[lm]].visibility for lm in mediapipe_landmark_names]), 
-                                                        "presence": np.mean([pose_landmarks[LANDMARK_INDEX_DICT[lm]].presence for lm in mediapipe_landmark_names]), 
+                    landmark_dict[output_landmark_name] = {"x": float(np.mean([pose_landmarks[LANDMARK_INDEX_DICT[lm]].x for lm in mediapipe_landmark_names])),
+                                                        "y": float(np.mean([pose_landmarks[LANDMARK_INDEX_DICT[lm]].y for lm in mediapipe_landmark_names])),
+                                                        "z": float(np.mean([pose_landmarks[LANDMARK_INDEX_DICT[lm]].z for lm in mediapipe_landmark_names])),
+                                                        "visibility": float(np.mean([pose_landmarks[LANDMARK_INDEX_DICT[lm]].visibility for lm in mediapipe_landmark_names])),
+                                                        "presence": float(np.mean([pose_landmarks[LANDMARK_INDEX_DICT[lm]].presence for lm in mediapipe_landmark_names])),
                                                         }
                 landmarks.append(landmark_dict)
             
@@ -212,11 +212,11 @@ class MediaPipeProcessor(BaseProcessor):
             for world_pose_landmarks in pose_result.pose_world_landmarks:
                 world_landmark_dict = {}
                 for output_landmark_name, mediapipe_landmark_names in OUTPUT_LANDMARK_NAMES.items():
-                    world_landmark_dict[output_landmark_name] = {"x": np.mean([world_pose_landmarks[LANDMARK_INDEX_DICT[lm]].x for lm in mediapipe_landmark_names]), 
-                                                        "y": np.mean([world_pose_landmarks[LANDMARK_INDEX_DICT[lm]].y for lm in mediapipe_landmark_names]), 
-                                                        "z": np.mean([world_pose_landmarks[LANDMARK_INDEX_DICT[lm]].z for lm in mediapipe_landmark_names]), 
-                                                        "visibility": np.mean([world_pose_landmarks[LANDMARK_INDEX_DICT[lm]].visibility for lm in mediapipe_landmark_names]), 
-                                                        "presence": np.mean([world_pose_landmarks[LANDMARK_INDEX_DICT[lm]].presence for lm in mediapipe_landmark_names]), 
+                    world_landmark_dict[output_landmark_name] = {"x": float(np.mean([world_pose_landmarks[LANDMARK_INDEX_DICT[lm]].x for lm in mediapipe_landmark_names])),
+                                                        "y": float(np.mean([world_pose_landmarks[LANDMARK_INDEX_DICT[lm]].y for lm in mediapipe_landmark_names])),
+                                                        "z": float(np.mean([world_pose_landmarks[LANDMARK_INDEX_DICT[lm]].z for lm in mediapipe_landmark_names])),
+                                                        "visibility": float(np.mean([world_pose_landmarks[LANDMARK_INDEX_DICT[lm]].visibility for lm in mediapipe_landmark_names])),
+                                                        "presence": float(np.mean([world_pose_landmarks[LANDMARK_INDEX_DICT[lm]].presence for lm in mediapipe_landmark_names])),
                                                         }
                 world_landmarks.append(world_landmark_dict)
         
@@ -227,9 +227,9 @@ class MediaPipeProcessor(BaseProcessor):
             if hip_data:
                 # Transform from MediaPipe (Y-down, Z-forward) to Three.js (Y-up, Z-backward)
                 root_position = {
-                    "x": hip_data.get("x", 0),
-                    "y": -hip_data.get("y", 0),
-                    "z": -hip_data.get("z", 0)
+                    "x": float(hip_data.get("x", 0)),
+                    "y": float(-hip_data.get("y", 0)),
+                    "z": float(-hip_data.get("z", 0))
                 }
         
         # Convert back to BGR for cv2.imencode in websocket handler
@@ -254,11 +254,11 @@ class MediaPipeProcessor(BaseProcessor):
             for joint_name, joint_data in world_landmarks[0].items():
                 if isinstance(joint_data, dict) and all(k in joint_data for k in ["x", "y", "z"]):
                     transformed[joint_name] = {
-                        "x": joint_data["x"],
-                        "y": -joint_data["y"],
-                        "z": -joint_data["z"],
-                        "visibility": joint_data.get("visibility", 0.0),
-                        "presence": joint_data.get("presence", 0.0),
+                        "x": float(joint_data["x"]),
+                        "y": float(-joint_data["y"]),
+                        "z": float(-joint_data["z"]),
+                        "visibility": float(joint_data.get("visibility", 0.0)),
+                        "presence": float(joint_data.get("presence", 0.0)),
                     }
                 else:
                     transformed[joint_name] = joint_data
@@ -268,7 +268,7 @@ class MediaPipeProcessor(BaseProcessor):
                 if isinstance(quat_data, dict):
                     original_joint = world_landmarks[0].get(joint_name, {})
                     visibility = original_joint.get("visibility", 0.0) if isinstance(original_joint, dict) else 0.0
-                    quat_data["visibility"] = visibility
+                    quat_data["visibility"] = float(visibility)
         else:
             fk_data = {}
         return fk_data

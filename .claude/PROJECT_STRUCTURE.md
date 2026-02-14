@@ -4,94 +4,90 @@
 
 ```
 pose-spatial-studio/
-├── backend/                                       [Done] (Phase 1 foundation)
-│   ├── app.py                                     [Done] (P1)
-│   ├── config.py                                  [Done → wire .env] (P1)
-│   ├── requirements.txt                           [Done → review CUDA/ML libs] (P1)
-│   ├── run_server.sh                              [Done] (P1)
-│   ├── Dockerfile                                 [Todo: CUDA base image] (P1)
+├── backend/
+│   ├── app.py                        # FastAPI + Socket.IO server, health endpoint
+│   ├── config.py                     # Settings (host, port, CORS, MediaPipe params)
+│   ├── requirements.txt              # Python deps (FastAPI, MediaPipe, torch, CLIP)
+│   ├── run_server.sh                 # Local dev startup script
 │   ├── core/
-│   │   └── websocket_handler.py                   [Done] (P1)
+│   │   └── websocket_handler.py      # Socket.IO stream management
 │   ├── processors/
-│   │   ├── base_processor.py                      [Done] (P1)
-│   │   ├── image_processor.py                     [Done] (P1)
-│   │   └── mediapipe_processor.py                 [Done] (P1)
+│   │   ├── base_processor.py         # Abstract processor interface
+│   │   ├── image_processor.py        # Frame preprocessing
+│   │   └── mediapipe_processor.py    # Pose estimation (2D/3D landmarks)
 │   ├── utils/
-│   │   ├── cache.py                               [Done] (P1)
-│   │   ├── locate_path.py                         [Done] (P1)
-│   │   └── logger.py                              [Done] (P1)
-│   └── models/                                    [Done → ensure bind‑mount] (P1)
-│
-├── agent/                                         [Todo: new service] (Phase 2)
-│   ├── app.py                                     [Todo] (P2)
-│   ├── tools/                                     [Todo: allowlisted tools] (P2)
-│   ├── requirements.txt                           [Todo] (P2)
-│   └── Dockerfile                                 [Todo] (P2)
+│   │   ├── cache.py                  # Caching utilities
+│   │   ├── locate_path.py            # Path resolution helpers
+│   │   └── logger.py                 # Structured logging
+│   └── models/                       # MediaPipe model files (.task, .tflite)
 │
 ├── frontend/
-│   ├── src/                                       [Done] (P1 foundation)
-│   │   ├── main.tsx                               [Done] (P1)
-│   │   ├── App.tsx                                [Done] (P1)
+│   ├── src/
+│   │   ├── main.tsx                  # App entry point
+│   │   ├── App.tsx                   # Root component, stream + WebSocket management
 │   │   ├── components/
-│   │   │   ├── CameraCapture.tsx                  [Done] (P1)
-│   │   │   ├── Controls.tsx                       [Done] (P1)
-│   │   │   ├── MultiViewGrid.tsx                  [Done] (P1)
-│   │   │   ├── Skeleton3DViewer.tsx               [Done] (P1)
-│   │   │   └── StreamViewer.tsx                   [Done] (P1)
+│   │   │   ├── CameraCapture.tsx     # Camera access, 10 FPS capture, JPEG encoding
+│   │   │   ├── Controls.tsx          # Stream management, camera selection, config upload
+│   │   │   ├── MultiViewGrid.tsx     # Multi-stream grid layout
+│   │   │   ├── Skeleton3DViewer.tsx  # Three.js canvas with video + 3D skeleton
+│   │   │   └── StreamViewer.tsx      # Stream container (camera + 3D viewer + overlays)
 │   │   ├── hooks/
-│   │   │   ├── useCameraDevices.ts                [Done] (P1)
-│   │   │   └── useWebSocket.ts                    [Done → point to api domain] (P1)
+│   │   │   ├── useCameraDevices.ts   # Camera device enumeration
+│   │   │   └── useWebSocket.ts       # Socket connection + pose results
 │   │   ├── services/
-│   │   │   ├── socketService.ts                   [Done] (P1)
-│   │   │   ├── streamService.ts                   [Done] (P1)
-│   │   │   └── streamInitService.ts               [Done] (P1)
+│   │   │   ├── socketService.ts      # Socket.IO client (reads VITE_BACKEND_URL)
+│   │   │   ├── streamService.ts      # Stream lifecycle management
+│   │   │   └── streamInitService.ts  # Async stream initialization
 │   │   ├── three/
-│   │   │   ├── SkeletonRenderer.tsx               [Done] (P1)
-│   │   │   ├── VideoPlane.tsx                     [Done] (P1)
-│   │   │   └── connections.ts                     [Done] (P1)
+│   │   │   ├── SkeletonRenderer.tsx  # 3D skeleton ball-and-stick rendering
+│   │   │   ├── VideoPlane.tsx        # Video feed texture on XY plane
+│   │   │   └── connections.ts        # Skeleton bone connection definitions
 │   │   └── types/
-│   │       └── pose.ts                            [Done] (P1)
-│   ├── package.json                               [Done] (P1)
-│   ├── vite.config.ts                             [Done] (P1)
-│   └── run_ui.sh                                  [Done] (P1)
+│   │       └── pose.ts              # Pose/landmark TypeScript types
+│   ├── public/
+│   │   └── avatars/                  # Avatar model files (.glb)
+│   ├── .env.local                    # Dev: VITE_BACKEND_URL=http://localhost:49101
+│   ├── .env.production               # Prod: VITE_BACKEND_URL=https://pose-backend.yingliu.site
+│   ├── package.json
+│   ├── vite.config.ts                # Vite config (port 8585, path aliases)
+│   └── run_ui.sh                     # Local dev startup script
 │
-├── docker/                                        [Todo: infra configs] (P1/P2)
-│   ├── compose.edge.yml                           [Todo: Nginx+Certbot] (P1)
-│   ├── compose.gpu.yml                            [Todo: backend(+redis)] (P1)
-│   └── nginx/conf.d/app.conf                      [Todo: proxy + TLS + WS] (P1)
+├── .github/workflows/
+│   ├── deploy_backend.yml            # CI/CD: rsync → docker cp → restart in container
+│   └── deploy_frontend.yml           # CI/CD: build → rsync → nginx reload
 │
-├── infra/                                         [Todo: optional] (P1/P3)
-│   ├── monitoring/ (Prometheus, Grafana)          [Todo] (P1)
-│   └── systemd/ (service units)                   [Todo] (P1)
+├── .claude/
+│   ├── PROJECT_STRUCTURE.md          # This file
+│   ├── PLAYWRIGHT_SETUP.md           # Playwright testing setup guide
+│   ├── TODO.md                       # Project roadmap and task tracking
+│   └── skills/
+│       ├── develop/SKILL.md          # Full development workflow
+│       └── code-review/SKILL.md      # Code review workflow
 │
-├── .claude/                                       [Claude Code configuration]
-│   ├── PROJECT_STRUCTURE.md                       [Done] (This file)
-│   ├── PLAYWRIGHT_SETUP.md                        [Done] (Testing setup guide)
-│   ├── TODO.md                                    [Done] (Project todos)
-│   └── skills/                                    [Development workflows]
-│       └── develop/SKILL.md                       [Done] (Dev workflow)
+├── tests/
+│   ├── pose-validation.spec.ts       # Playwright test suite
+│   └── README.md                     # Testing guide
 │
-├── tests/                                         [Done] (Testing infrastructure)
-│   ├── pose-validation.spec.ts                    [Done] (Playwright test suite)
-│   └── README.md                                  [Done] (Testing guide)
-│
-├── playwright.config.ts                           [Done] (Playwright configuration)
-├── package.json                                   [Done] (Test dependencies & scripts)
-├── CHANGELOG.md                                   [Done] (Version history)
-├── README.md                                      [Done] (Project overview)
-├── output/                                        [Done] (P1)
-├── logs/                                          [Done] (P1)
-├── .cache/                                        [Done] (P1)
-└── TIPS.md
+├── playwright.config.ts              # Playwright config (multi-browser, auto server start)
+├── package.json                      # Root package (test scripts + Playwright dep)
+├── CHANGELOG.md                      # Version history
+├── README.md                         # Project overview and setup guide
+├── LLMprompt.md                      # LLM prompting reference
+├── output/                           # Processing output directory
+├── logs/                             # Backend log files (date-stamped)
+└── .cache/                           # Runtime cache
 ```
 
 ## Core Components
 
 ### Backend
 
-**app.py** - FastAPI server with Socket.IO, CORS, health endpoints, debug logging
+**app.py** - FastAPI server with Socket.IO, CORS, health endpoint (`/health`), root info endpoint (`/`)
 
-**config.py** - Centralized settings (paths, MediaPipe params, FPS, quality, max streams)
+**config.py** - Centralized settings with env var support:
+- `POSE_STUDIO_HOST` (default `0.0.0.0`), `POSE_STUDIO_PORT` (default `49101`)
+- CORS origins: `localhost:8585`, `robot.yingliu.site`
+- MediaPipe params, FPS, JPEG quality, max streams
 
 **websocket_handler.py** - Manages:
 - Client connections/disconnections
@@ -122,6 +118,8 @@ pose-spatial-studio/
 **Skeleton3DViewer.tsx** - Three.js canvas with video plane + 3D skeleton
 
 **useWebSocket.ts** - Socket connection, pose results Map, connection status
+
+**socketService.ts** - Socket.IO client, reads backend URL from `VITE_BACKEND_URL` env var
 
 **streamInitService.ts** - Async stream initialization with backend
 
@@ -165,6 +163,30 @@ Delete button → cleanup_processor event → Backend releases processors
 → UI removes stream → Camera stops
 ```
 
+## Deployment Architecture
+
+```
+GitHub Actions (push to main)
+    │
+    ├─ deploy_frontend.yml
+    │   └─ npm build → rsync dist/ → nginx reload
+    │   └─ Target: VM1 via Cloudflare tunnel
+    │   └─ Serves: https://robot.yingliu.site
+    │
+    └─ deploy_backend.yml
+        └─ rsync → docker cp → pip install → restart → health check
+        └─ Target: VM2 via Cloudflare tunnel (pose-backend-ssh.yingliu.site)
+        └─ Container: pose-spatial-studio-backend (port 49101)
+        └─ Serves: https://pose-backend.yingliu.site
+
+VM1 (Frontend Edge)          VM2 (GPU Backend)
+┌─────────────────┐          ┌──────────────────────────┐
+│ Nginx            │          │ Docker container          │
+│ /var/www/frontend│  ──WS──► │ FastAPI + Socket.IO       │
+│ Cloudflare TLS   │          │ MediaPipe + GPU (CUDA)    │
+└─────────────────┘          └──────────────────────────┘
+```
+
 ## WebSocket Events
 
 ### Client → Server
@@ -189,8 +211,8 @@ Delete button → cleanup_processor event → Backend releases processors
 
 ### Backend (config.py)
 ```python
-HOST, PORT, DEBUG
-MEDIAPIPE_MODEL_PATH
+HOST = os.getenv("POSE_STUDIO_HOST", "0.0.0.0")
+PORT = int(os.getenv("POSE_STUDIO_PORT", 49101))
 MIN_DETECTION_CONFIDENCE = 0.5
 MIN_TRACKING_CONFIDENCE = 0.5
 TARGET_FPS = 15
@@ -198,7 +220,11 @@ JPEG_QUALITY = 80
 MAX_STREAMS = 10
 ```
 
-### Frontend (JSON upload)
+### Frontend (environment files)
+- `.env.local` → `VITE_BACKEND_URL=http://localhost:49101`
+- `.env.production` → `VITE_BACKEND_URL=https://pose-backend.yingliu.site`
+
+### Frontend (JSON config upload)
 ```json
 {
   "min_detection_confidence": 0.7,
@@ -209,32 +235,21 @@ MAX_STREAMS = 10
 
 ## Tech Stack
 
-**Backend:** Python 3.13, FastAPI, Socket.IO, MediaPipe, OpenCV, NumPy
+**Backend:** Python 3.13, FastAPI, Socket.IO, MediaPipe, OpenCV, NumPy, PyTorch, CLIP
 
 **Frontend:** React 18, TypeScript, Three.js, React Three Fiber, Socket.IO Client, Vite
 
 **Testing:** Playwright (automated UI testing), Playwright MCP (Claude Code integration)
 
-## Testing Infrastructure
+**CI/CD:** GitHub Actions, Cloudflare Tunnels (SSH access), rsync deployment
+
+**Infrastructure:** Nginx, Docker, NVIDIA CUDA, Cloudflare (TLS, DDoS, WAF)
+
+## Testing
 
 ### Playwright Automated Testing
 
-**Configuration (playwright.config.ts):**
-- Multi-browser support (Chrome, Firefox, Safari)
-- Auto-starts backend and frontend servers
-- Screenshot and video capture on failure
-- HTML test reports
-
-**Test Suite (tests/pose-validation.spec.ts):**
-- Application load validation
-- Camera name input testing
-- Camera selection testing
-- Full pose capture workflow
-- Avatar renderer validation
-- Pose movement detection
-- Acceptance criteria validation
-
-**Running Tests:**
+**Running tests:**
 ```bash
 npm test                # Run all tests
 npm run test:headed     # Run with visible browser
@@ -246,13 +261,9 @@ npm run test:report     # View HTML report
 Claude Code can run tests using Playwright MCP:
 ```
 Use ToolSearch with query: "playwright"
-Ask Claude: "Run the pose validation tests"
 ```
 
-**Test Results:**
-- Screenshots saved to `test-results/`
-- Videos saved on test failure
-- HTML reports viewable with `npm run test:report`
+**Test results:** Screenshots in `test-results/`, videos on failure, HTML reports via `npm run test:report`
 
 ## Extension Guide
 
@@ -265,10 +276,10 @@ class CustomProcessor(BaseProcessor):
     def initialize(self) -> bool:
         self._is_initialized = True
         return True
-    
+
     def process_frame(self, frame, timestamp_ms):
         return {'processed_frame': frame, 'data': {}}
-    
+
     def cleanup(self):
         self._is_initialized = False
 ```
@@ -297,7 +308,7 @@ export function CustomRenderer({ landmarks }: Props) {
 
 ## Performance Tips
 
-- **10 FPS capture** reduces bandwidth/CPU (configurable via `TARGET_FPS` constant)
+- **10 FPS capture** reduces bandwidth/CPU (configurable via `TARGET_FPS`)
 - **JPEG quality 0.8** balances size vs quality
 - **Processor pipeline** allows independent optimization
 - **React optimization** uses refs to avoid unnecessary re-renders
@@ -311,7 +322,7 @@ tail -f logs/$(date +%Y-%m-%d).log
 grep ERROR logs/*.log
 ```
 
-**Frontend console:**
+**Frontend console prefixes:**
 ```
 [useWebSocket] - Socket events
 [CameraCapture] - Frame capture
@@ -330,4 +341,3 @@ grep ERROR logs/*.log
 3. **Lifecycle management** - Processors initialized once, explicit cleanup
 4. **Performance-first** - 10 FPS, compression, optimized rendering
 5. **Extensible** - Easy to add processors, visualizations, configs
-

@@ -1,43 +1,52 @@
-### Phase 1 — Deploy two VMs with GPU backend and secure frontend
-#### VM1: Edge (CPU‑only, public)
-- DNS (Done)
-  - Add `A` records: `pose.yourdomain` → VM1 IP; `api.yourdomain` → VM1 IP.
-- OS/Base (Done)
-  - Ubuntu 22.04/24.04, firewall (ufw) allow 80/443, SSH from admin IPs only.
-  - Install Docker + Compose plugin.
-- Reverse proxy & TLS (Done)
-  - Nginx for `pose.yourdomain` (serves frontend static) and `api.yourdomain` (proxies to VM2:8000).
-  - Certbot (cron/renewal). Enable HTTP/2, gzip, HSTS.
-  - Configure WebSocket upgrade for `/socket.io/`.
-- Frontend hosting (Done)
-  - Build frontend (`npm ci && npm run build`).
-  - Copy `dist/` to `/var/www/app` (owned by Nginx user).
-- Security (Done)
-  - Optional Basic Auth while private testing.
-  - Rate limit `/socket.io/` and API.
-- Observability (Done)
-  - Access logs to `/var/log/nginx`; set log rotation.
+### Phase 1 — Production deployment with GPU backend, frontend, and CI/CD
 
-#### VM2: GPU App (private behind Edge)
-- Proxmox GPU (Done)
-  - GPU passthrough completed (as stated).
+#### VM1: Frontend Edge (CPU‑only, public)
+- DNS (Done)
+  - `robot.yingliu.site` → frontend VM.
 - OS/Base (Done)
-  - Ubuntu 22.04/24.04; ufw allow from VM1 only (and SSH admin IPs).
+  - Ubuntu, firewall configured, SSH via Cloudflare tunnel.
+- Reverse proxy & TLS (Done)
+  - Nginx serves frontend static files and proxies backend traffic.
+  - TLS managed by Cloudflare (edge certificates).
+  - WebSocket upgrade configured for `/socket.io/`.
+- Frontend hosting (Done)
+  - Built via GitHub Actions (`npm ci && npm run build`).
+  - Deployed to `/var/www/frontend` via rsync, nginx reloaded automatically.
+- Security (Done)
+  - Cloudflare provides DDoS protection, WAF, and edge TLS.
+  - CORS origins restricted to `localhost` and `robot.yingliu.site`.
+
+#### VM2: GPU Backend (private, Cloudflare tunnel access only)
+- Proxmox GPU (Done)
+  - GPU passthrough completed.
+- OS/Base (Done)
+  - Ubuntu with Docker, NVIDIA Container Toolkit.
 - NVIDIA stack (Done)
-  - Install NVIDIA driver (550+), CUDA 12.6; verify `nvidia-smi`.
-  - Install Docker + Compose plugin, NVIDIA Container Toolkit; test `docker run --gpus all ... nvidia-smi`.
-- Repo & runtime (Todo)
-  - Clone repo to `/opt/pose-vision-studio`.
-  - Create `.env` with prod values (host, port, CORS/socket origins, FPS/quality, detection toggles).
-  - Prepare bind‑mounts: `/mnt/data/models`, `/var/log/pose-vision-studio`.
-- Containerization (Todo)
-  - CUDA‑based `backend/Dockerfile` (e.g., `nvidia/cuda:12.6-runtime-ubuntu22.04`).
-  - `docker-compose.yml` for `backend` (+ optional `redis`).
-  - Healthcheck endpoint `/health`; ensure `uvicorn` uses `0.0.0.0:8000`.
-- Networking (Todo)
-  - Ensure VM2 only reachable from VM1; no public exposure.
+  - NVIDIA driver + CUDA installed and verified.
+- Backend container (Done)
+  - Backend runs in Docker container `pose-spatial-studio-backend` on port `49101`.
+  - Health endpoint `/health` verified by CI/CD pipeline after each deploy.
+  - Deployment: GitHub Actions rsyncs code → `docker cp` into container → `pip install` → restart.
+- Networking (Done)
+  - VM2 accessible only via Cloudflare tunnel (`pose-backend-ssh.yingliu.site`).
+  - Backend exposed via `pose-backend.yingliu.site` through Cloudflare.
+
+#### CI/CD (Done)
+- GitHub Actions workflows on push to `main`:
+  - `deploy_backend.yml` — syncs backend code into running container, installs deps, restarts, health checks.
+  - `deploy_frontend.yml` — builds frontend with production env, rsyncs to VM1, reloads nginx.
+- SSH via Cloudflare tunnel (`cloudflared access ssh`).
+- Secrets managed in GitHub Actions (SSH keys, host addresses, backend URL).
+
+#### Remaining Phase 1 items
+- Dockerfile (Todo)
+  - Create a reproducible `backend/Dockerfile` (CUDA base image) so the container can be rebuilt from scratch.
+- docker-compose.yml (Todo)
+  - Define `docker-compose.yml` for local dev and production container orchestration.
+- CUDA torch pinning (Todo)
+  - Pin `torch` and `torchvision` to CUDA-specific versions in `requirements.txt` (e.g., `+cu121`).
 - Performance baselines (Todo)
-  - Start with 720p @ 10 FPS, JPEG Q=70. Validate GPU load, end‑to‑end latency, and bandwidth for up to 10 users.
+  - Benchmark 720p @ 10 FPS, JPEG Q=70. Validate GPU load, end‑to‑end latency, bandwidth for up to 10 concurrent users.
 
 ---
 
@@ -52,10 +61,9 @@
   - Enforce allowlist; hard timeout (30s), token/response limits; sanitize outputs.
 - Frontend (Todo)
   - Add a button to trigger `POST /agent/invoke` with current session context.
-  - Show “thinking” state; subscribe to agent results via Socket.IO; display final text/actions.
+  - Show "thinking" state; subscribe to agent results via Socket.IO; display final text/actions.
 - Deployment (Todo)
-  - Extend VM2 compose with `agent` (depends on `redis` if used).
-  - Add `location /agent/` proxy on VM1 Nginx to VM2 `agent` port.
+  - Add `agent` container to compose. Proxy `/agent/` on VM1 nginx to VM2.
 
 ---
 
@@ -75,16 +83,16 @@
 
 ---
 
-### Cross‑cutting: Security, Monitoring, CI/CD
-- Security (Todo)
-  - CORS/socket origins restricted to `https://app.yourdomain`.
-  - Secrets via `.env` not in git; per‑service least privilege.
-  - Optional Basic Auth/invite code while private; migrate to JWT if needed later.
-- Monitoring (Todo)
-  - cAdvisor/node‑exporter + Prometheus + Grafana stack (compose) on VM2.
+### Cross‑cutting: Security, Monitoring, Logging
+
+#### Done
+- Security: Cloudflare DDoS/WAF/TLS, CORS restricted, secrets in GitHub Actions (not in git).
+- CI/CD: GitHub Actions for both frontend and backend with health checks.
+- Logging: Backend structured logs to `logs/` directory.
+
+#### Todo
+- Monitoring
+  - cAdvisor/node‑exporter + Prometheus + Grafana stack on VM2.
   - Alert on GPU memory near cap, high latency, or WebSocket disconnect spikes.
-- Logging (Todo)
-  - Backend structured logs; Docker log size limits or logrotate; ship to Loki/ELK if desired.
-- CI/CD (Todo)
-  - GitHub Actions building Docker images (backend/agent), push to registry.
-  - Deploy script on VM2: `docker compose pull && docker compose up -d`. Optionally verify health before switching.
+- Advanced logging
+  - Docker log size limits or logrotate; ship to Loki/ELK if desired.

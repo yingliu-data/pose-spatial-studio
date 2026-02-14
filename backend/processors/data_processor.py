@@ -47,7 +47,8 @@ class DataProcessor(BaseProcessor):
 
         if not self._fps_throttling(timestamp, self.config['target_fps']):
             return None
-        
+        self.last_processed_time = timestamp
+
         if self.greyscale_enabled:
             frame = cv2.cvtColor(frame, cv2.COLOR_BGR2GRAY)
 

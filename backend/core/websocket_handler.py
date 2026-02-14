@@ -151,15 +151,12 @@ class WebSocketHandler:
                     pose_data = None if result is None else result['data']
                 if processed_frame is not None:
                     _, buffer = cv2.imencode('.jpg', processed_frame, [cv2.IMWRITE_JPEG_QUALITY, 100])
-                else:
-                    buffer = None
-                
-                await self.sio.emit('pose_result', {
-                    'stream_id': stream_id,
-                    'frame': base64.b64encode(buffer).decode('utf-8'),
-                    'pose_data': pose_data,
-                    'timestamp_ms': timestamp
-                }, room=sid)
+                    await self.sio.emit('pose_result', {
+                        'stream_id': stream_id,
+                        'frame': base64.b64encode(buffer).decode('utf-8'),
+                        'pose_data': pose_data,
+                        'timestamp_ms': timestamp
+                    }, room=sid)
                 
             except Exception as e:
                 logger.error(f"Error processing frame: {e}", exc_info=True)

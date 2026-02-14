@@ -11,6 +11,8 @@ The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.0.0/).
 - VideoPlane texture leak: dispose old texture when switching from video to processed canvas
 - Result timeout too aggressive (2s → 10s): prevents silent frame drops during model cold start
 - flush_stream backend crash: fix dict unpacked as tuple in processor pipeline access
+- process_frame crash: skip emit when buffer is None instead of crashing on base64.b64encode(None)
+- DataProcessor FPS throttling: update last_processed_time so throttle actually works
 
 ## [1.1.0] - 2025-02-13
 

@@ -56,7 +56,7 @@ jobs:
         run: cat ~/.ssh/config
 
       - name: Test SSH via Cloudflare
-        run: ssh -o StrictHostKeyChecking=accept-new pose-backend "echo 'SSH OK via Cloudflare'"
+        run: ssh -vvv -o StrictHostKeyChecking=accept-new pose-backend "echo 'SSH OK via Cloudflare'"
 
       - name: Deploy to container and restart
         run: |

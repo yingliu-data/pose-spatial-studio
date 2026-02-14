@@ -51,6 +51,7 @@ export function StreamViewer({ socket, stream, poseResult, onVideoElementReady }
 
   const renderContent = () => {
     if (hasData) {
+      console.debug(`[StreamViewer] Rendering Skeleton3DViewer (hasData=true)`);
       return (
         <Skeleton3DViewer
           poseResult={poseResult}

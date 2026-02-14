@@ -1,9 +1,8 @@
 import { io, Socket } from 'socket.io-client';
 
-// Backend WebSocket URL - set via environment variable for production
-// For local development: http://localhost:49101
-// For production: Use Cloudflare tunnel URL (HTTPS required for browser access)
-const SOCKET_URL = import.meta.env.VITE_BACKEND_URL || 'http://localhost:49101' || 'https://pose-backend.yingliu.site';
+// Backend WebSocket URL - must be set via VITE_BACKEND_URL environment variable
+// Local dev: set in .env.local | Production: set in GitHub Actions secrets
+const SOCKET_URL = import.meta.env.VITE_BACKEND_URL;
 
 class SocketService {
   private socket: Socket | null = null;

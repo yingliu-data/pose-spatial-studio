@@ -27,6 +27,14 @@ MEDIAPIPE_LANDMARK_NAMES = [
 
 LANDMARK_INDEX_DICT = {name: idx for idx, name in enumerate(MEDIAPIPE_LANDMARK_NAMES)}
 
+POSE_CONNECTIONS = frozenset([
+    (0, 1), (1, 2), (2, 3), (3, 7), (0, 4), (4, 5), (5, 6), (6, 8),
+    (9, 10), (11, 12), (11, 13), (13, 15), (15, 17), (15, 19), (15, 21),
+    (17, 19), (12, 14), (14, 16), (16, 18), (16, 20), (16, 22), (18, 20),
+    (11, 23), (12, 24), (23, 24), (23, 25), (24, 26), (25, 27), (26, 28),
+    (27, 29), (28, 30), (29, 31), (30, 32), (27, 31), (28, 32),
+])
+
 OUTPUT_LANDMARK_NAMES = {
     'hipCentre': ['left_hip', 'right_hip'],
     'neck': ['left_shoulder', 'right_shoulder'],
@@ -79,7 +87,6 @@ class MediaPipeProcessor(BaseProcessor):
         self.object_detector_frame_height = pose_processor_config['object_detector_frame_height']
         self.landmarker = None
         self.object_detector = None
-        self.mp_pose = mp.solutions.pose
         self.latest_pose_result = None
         self.latest_object_result = None
         self.result_lock = threading.Lock()
@@ -196,7 +203,7 @@ class MediaPipeProcessor(BaseProcessor):
             
                 for landmark in pose_landmarks:
                     cv2.circle(annotated_frame, (int(landmark.x * w), int(landmark.y * h)), 5, (0, 255, 0), -1)
-                for start_idx, end_idx in self.mp_pose.POSE_CONNECTIONS:
+                for start_idx, end_idx in POSE_CONNECTIONS:
                     if start_idx < len(pose_landmarks) and end_idx < len(pose_landmarks):
                         cv2.line(annotated_frame, (int(pose_landmarks[start_idx].x * w), int(pose_landmarks[start_idx].y * h)),
                                 (int(pose_landmarks[end_idx].x * w), int(pose_landmarks[end_idx].y * h)), (255, 0, 0), 2)

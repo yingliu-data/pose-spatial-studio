@@ -84,7 +84,7 @@ jobs:
             docker exec $CONTAINER bash -c "cd /root/backend && pip install --break-system-packages -r requirements.txt -q"
 
             echo "=== Restarting app.py ==="
-            docker exec $CONTAINER bash -c "pkill -f 'python.*app.py' || true"
+            docker exec $CONTAINER bash -c "pkill -f 'python.*app.py'" || true
             sleep 2
             docker start $CONTAINER 2>/dev/null || true
             docker exec -d $CONTAINER bash -c "cd /root/backend && mkdir -p logs && python app.py >> logs/app.log 2>&1"

@@ -1,6 +1,6 @@
 {
   "name": "pose-spatial-studio",
-  "version": "1.0.0",
+  "version": "1.1.0",
   "description": "Pose Spatial Studio - 3D pose detection and avatar rendering",
   "private": true,
   "scripts": {

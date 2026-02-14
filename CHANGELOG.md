@@ -13,6 +13,7 @@ The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.0.0/).
 - flush_stream backend crash: fix dict unpacked as tuple in processor pipeline access
 - process_frame crash: skip emit when buffer is None instead of crashing on base64.b64encode(None)
 - DataProcessor FPS throttling: update last_processed_time so throttle actually works
+- numpy.float64 JSON serialization: convert all np.mean() and FK outputs to native Python float for Socket.IO emit
 
 ## [1.1.0] - 2025-02-13
 

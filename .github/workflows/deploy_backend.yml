@@ -48,9 +48,6 @@ jobs:
           Host pose-backend
             HostName pose-backend-ssh.yingliu.site
             User root
-            IdentitiesOnly yes
-            PubkeyAcceptedAlgorithms +ssh-rsa
-            HostkeyAlgorithms +ssh-ed25519,ssh-rsa
             ProxyCommand cloudflared access ssh --hostname %h
           EOF
           chmod 600 ~/.ssh/config

@@ -14,14 +14,14 @@ Mark each task as `in_progress` when starting work on it, and `completed` immedi
 
 ## Workflow Steps
 
-1. **Understand** -- Fetch the input, understand requirements and acceptance criteria
+1. **Understand** -- Analyze requirements and define acceptance criteria
 2. **Branch** -- Create a properly named branch from the correct base
-3. **Implement** -- Make changes following code conventions
-4. **Validate** -- Run analysis and tests
-5. **Changelog** -- Add entry to CHANGELOG.md
-6. **Review** -- Optionally run a developer review to catch issues early
-7. **Commit** -- Use conventional commit messages
-8. **Push & MR** -- Create a merge request with proper title format
+3. **Implement** -- Make changes following code conventions and lint standards
+4. **Validate** -- Start dev environment and test the implementation
+5. **Document** -- Update CHANGELOG.md, PROJECT_STRUCTURE.md, README.md as needed
+6. **Review** -- Optionally run a developer review via `/code-review`
+7. **Commit** -- Stage files and commit with conventional message format
+8. **Push & PR** -- Push branch and create a pull request
 
 ---
 
@@ -41,36 +41,28 @@ Document the following:
 
 ---
 
-## Step 2: Navigate to Correct Folder
+## Step 2: Create Feature Branch
+
+### Prepare the base
 
 1. Read `PROJECT_STRUCTURE.md` to understand the project architecture
 2. Identify which folder(s) will be affected by the changes
-3. Navigate to the appropriate directory using `cd` command
+3. Fetch latest from remote:
+   ```bash
+   git fetch origin
+   ```
+4. Determine the base branch:
+   - If one release branch exists, use it
+   - If multiple exist, show the latest two and ask the user which to target using `AskUserQuestion` (mark the latest as "Recommended")
 
----
+### Create the branch
 
-## Step 3: Fetch and Checkout Base Branch
-
-```bash
-git fetch origin
-```
-
-
-Determine the base branch to use:
-- If one release branch exists, use it
-- If multiple exist, show the latest two and ask the user which to target using `AskUserQuestion` (mark the latest as "Recommended")
-
-**For new features**, create a new branch from the main/develop branch:
 ```bash
 git checkout main
-git checkout -b new-branch-name
+git checkout -b type/brief-description
 ```
 
----
-
-## Step 4: Create Feature Branch
-
-**Branch naming format:** `type/brief-description`
+### Branch naming format: `type/brief-description`
 
 | Type | Purpose | Example |
 |------|---------|---------|
@@ -85,23 +77,41 @@ git checkout -b new-branch-name
 - Include ticket/issue key if applicable
 - Keep description brief and descriptive
 
+### Branching from in-progress work
+
+When a ticket depends on another ticket still in code review, branch from that ticket's branch instead. After the base ticket is merged, rebase onto the target branch and force push with `--force-with-lease`.
+
 ---
 
-## Step 5: Implement Changes and lint check
+## Step 3: Implement Changes
 
 Follow these guidelines during implementation:
+
 1. **Code conventions**: Maintain consistent formatting and style with existing codebase
 2. **Acceptance criteria**: Ensure all acceptance criteria from Step 1 are fully met
 3. **Update TODO**: Mark tasks as `in_progress` when starting, `completed` when finished
-4. **Testing as you go**: Validate changes incrementally to catch issues early
-5. **Optimize algorithm complexity**: Analyze and improve Big O time/space complexity where possible
+4. **Test as you go**: Validate changes incrementally to catch issues early
+5. **Optimize complexity**: Analyze and improve Big O time/space complexity where possible
 6. **Lint check**: Run linters and code quality tools to ensure code meets project standards
+
+### Frontend lint
+```bash
+cd frontend
+npx eslint src/ --ext .ts,.tsx
+npx tsc --noEmit
+```
+
+### Backend lint
+```bash
+cd backend
+python -m py_compile app.py
+```
 
 ---
 
-## Step 6: Validate
+## Step 4: Validate
 
-### Start the development environment:
+### Start the development environment
 
 1. **Start the backend server:**
    ```bash
@@ -117,7 +127,7 @@ Follow these guidelines during implementation:
 
 3. **Verify configuration:** Ensure the frontend is connecting to the local backend (not the production remote server)
 
-### Test the implementation:
+### Test the implementation
 
 You can test either **manually** or using **automated Playwright testing**.
 
@@ -125,71 +135,45 @@ You can test either **manually** or using **automated Playwright testing**.
 
 Use Playwright MCP to automate UI testing:
 
-1. **Use ToolSearch to load Playwright tools:**
+1. **Load Playwright tools:**
    ```
    Use ToolSearch with query: "playwright"
    ```
 
 2. **Run automated test:**
    - Navigate to `http://localhost:8585`
-   - Fill in camera name as 'test'
+   - Fill in camera name as `test`
    - Select laptop camera option
    - Capture screenshots and validate pose detection
    - Verify avatar movement matches expected behavior
-   - Generate test report
 
-3. **Example Playwright test script** (tests/pose_validation.spec.ts):
-   ```typescript
-   import { test, expect } from '@playwright/test';
-
-   test('pose capture and avatar validation', async ({ page }) => {
-     // Navigate to app
-     await page.goto('http://localhost:8585');
-
-     // Fill camera name
-     await page.fill('[data-testid="camera-name"]', 'test');
-
-     // Select laptop camera
-     await page.selectOption('[data-testid="camera-source"]', 'laptop');
-
-     // Wait for pose detection
-     await page.waitForSelector('[data-testid="avatar-movement"]', { timeout: 10000 });
-
-     // Validate avatar is rendering
-     const avatarVisible = await page.isVisible('[data-testid="avatar-renderer"]');
-     expect(avatarVisible).toBeTruthy();
-
-     // Take screenshot for visual verification
-     await page.screenshot({ path: 'test-results/pose-validation.png' });
-   });
-   ```
+3. **Reference test script:** See `tests/pose_validation.spec.ts` for the full Playwright test suite
 
 #### Option B: Manual Testing
 
 1. Open browser to `http://localhost:8585`
 2. In the UI:
-   - Enter camera name as 'test'
+   - Enter camera name as `test`
    - Select laptop camera option
    - Capture human pose and observe avatar movement
-3. **Validate visually:**
+3. Validate visually:
    - Does pose detection work correctly?
    - Does avatar movement match pose?
    - Are there any visual glitches or errors?
 
+### Validate against acceptance criteria
+
+- Does the implementation meet all criteria from Step 1?
+- If **NO**: Return to Step 3 and continue development
+- If **YES**: Proceed to Step 5
+
 ---
 
-### Validate against acceptance criteria:
-- Does the performance match all criteria from Step 1?
-- If NO: Return to Step 5 and continue development
-- If YES: Proceed to Step 7 
-
----
-
-## Step 7: Update Documentation
+## Step 5: Update Documentation
 
 Update the following documentation files as needed:
 
-### 1. Update CHANGELOG.md
+### 1. CHANGELOG.md
 Add an entry to the appropriate `CHANGELOG.md` file:
 
 **Format:**
@@ -201,32 +185,32 @@ Add an entry to the appropriate `CHANGELOG.md` file:
 
 If the version section doesn't exist, create it at the top of the file.
 
-### 2. Update PROJECT_STRUCTURE.md
+### 2. PROJECT_STRUCTURE.md
 If the changes affect project architecture, update `PROJECT_STRUCTURE.md` accordingly.
 
-### 3. Update README.md
+### 3. README.md
 If the changes affect setup, usage, or dependencies, update the relevant `README.md` file.
 
-### 4. Update TODO status
-Mark all completed tasks in your TODO list as `completed` using `TodoWrite`. 
+### 4. TODO status
+Mark all completed tasks in your TODO list as `completed` using `TodoWrite`.
 
 ---
 
-## Step 8: Developer Review (Optional)
+## Step 6: Developer Review (Optional)
 
 Use `AskUserQuestion` to ask whether the user wants to run a Developer Review before committing:
 
 **Question:** "Would you like to run a Developer Review before committing?"
 
 **Options:**
-- Yes (Recommended) - Review changes against base branch to catch issues early
-- No - Skip review and proceed to commit
+- Yes (Recommended) -- Review changes against base branch to catch issues early
+- No -- Skip review and proceed to commit
 
-If the user selects "Yes", follow the process defined in `skills/code-review/SKILL.md`.
+If the user selects "Yes", follow the process defined in `/code-review`.
 
 ---
 
-## Step 9: Commit Changes
+## Step 7: Commit Changes
 
 ### Commit message format
 Use conventional commits: `type: description`
@@ -247,49 +231,30 @@ Use conventional commits: `type: description`
 2. **Imperative mood**: Use "add" not "added", "fix" not "fixed"
 3. **Length**: Keep under 72 characters
 4. **No period**: Don't end with a period
-5. **Co-author**: Include co-authorship line:
-   ```
-   Co-Authored-By: Claude Sonnet 4.5 <noreply@anthropic.com>
-   ```
 
 ---
 
-## Step 10: Push Branch
+## Step 8: Push Branch and Create Pull Request
+
+### Push
 
 ```bash
 git push -u origin <branch-name>
 ```
 
----
+### Create PR
 
-## Step 11: Create Merge Request (Pull Request)
+Use `gh pr create` CLI command.
 
-### PR Title format
-Use a clear, descriptive title that summarizes the changes.
-
+**PR title**: Clear, descriptive, under 70 characters.
 **Example:** `Add avatar joint rotation and axis alignment support`
 
-### Create the PR
-Use `gh pr create` CLI command or GitHub MCP tools.
-
-### PR Description should include:
+**PR description** should include:
 1. **Summary of changes**: Brief overview of what was implemented
 2. **Link to issue/ticket**: Reference the original requirement or issue number
 3. **Testing notes**: How to test the changes, steps to reproduce
 4. **Screenshots**: Include screenshots for UI changes
 5. **Acceptance criteria**: Confirm all criteria from Step 1 are met
-
----
-
-## Branching from In-Progress Work
-
-When a ticket depends on another ticket still in code review, branch from the in-review ticket's branch:
-
-```bash
-git checkout -b feat/mga-5678-dependent-feature origin/feat/mga-1234-base-feature
-```
-
-After the base ticket is merged, rebase onto the target branch and force push with `--force-with-lease`.
 
 ---
 
@@ -300,13 +265,12 @@ Before creating the pull request, verify all of the following:
 - [ ] All acceptance criteria from Step 1 are fully met
 - [ ] All TODO tasks are marked as `completed`
 - [ ] Tests written and passing (where applicable)
-- [ ] Manual validation completed successfully (Step 6)
+- [ ] Validation completed successfully (Step 4)
+- [ ] Lint checks pass with no issues
 - [ ] Commit messages follow `type: description` format
 - [ ] Branch name follows `type/brief-description` convention
 - [ ] PR title is clear and descriptive
 - [ ] Documentation updated (CHANGELOG.md, README.md, PROJECT_STRUCTURE.md as needed)
 - [ ] No secrets, credentials, or sensitive data in committed code
 - [ ] Code follows project conventions and existing patterns
-- [ ] Lint checks pass with no issues
-- [ ] Memory optimization verified (if applicable)
-- [ ] No unnecessary files added (temp files, IDE configs, build artifacts, etc.)
+- [ ] No unnecessary files added (temp files, IDE configs, build artifacts)

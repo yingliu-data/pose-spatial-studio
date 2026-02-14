@@ -178,8 +178,9 @@ class WebSocketHandler:
                 processor_id = f"{sid}_{stream_id}"
                 
                 if processor_id in self.processors:
-                    _, pose_processor = self.processors[processor_id]
-                    if hasattr(pose_processor, 'result_lock'):
+                    pipeline = self.processors[processor_id]
+                    pose_processor = pipeline.get('pose_processor')
+                    if pose_processor and hasattr(pose_processor, 'result_lock'):
                         with pose_processor.result_lock:
                             pose_processor.latest_pose_result = None
                             pose_processor.latest_object_result = None

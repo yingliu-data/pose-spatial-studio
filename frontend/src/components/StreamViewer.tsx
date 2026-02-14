@@ -40,6 +40,7 @@ export function StreamViewer({ socket, stream, poseResult, onVideoElementReady }
   const [videoElement, setVideoElement] = useState<HTMLVideoElement | null>(null);
   const [processedCanvas, setProcessedCanvas] = useState<HTMLCanvasElement | null>(null);
   const hasData = !!(poseResult?.frame);
+  const cameraReady = !!(videoElement);
 
   const handleVideoReady = (video: HTMLVideoElement) => {
     setVideoElement(video);
@@ -47,25 +48,25 @@ export function StreamViewer({ socket, stream, poseResult, onVideoElementReady }
       onVideoElementReady(video);
     }
   };
-  
+
   return (
     <div className="view-container" style={{ background: 'rgba(0, 0, 0, 0.35)', borderRadius: '24px', overflow: 'hidden', border: '1px solid rgba(255, 255, 255, 0.18)', boxShadow: '0 24px 80px rgba(0, 0, 0, 0.5), inset 0 1px 0 rgba(255, 255, 255, 0.08)', minHeight: '400px', position: 'relative', backdropFilter: 'blur(80px) saturate(200%) brightness(1.1)', WebkitBackdropFilter: 'blur(80px) saturate(200%) brightness(1.1)' }}>
-      <CameraCapture 
-        socket={socket} 
-        streamId={stream.streamId} 
+      <CameraCapture
+        socket={socket}
+        streamId={stream.streamId}
         processorConfig={stream.processorConfig || {}}
-        sourceType={stream.sourceType} 
+        sourceType={stream.sourceType}
         deviceId={stream.deviceId}
-        videoFile={stream.videoFile} 
+        videoFile={stream.videoFile}
         poseResult={poseResult}
-        onVideoReady={handleVideoReady} 
-        onProcessedImageReady={setProcessedCanvas} 
+        onVideoReady={handleVideoReady}
+        onProcessedImageReady={setProcessedCanvas}
       />
-      {hasData ? (
-        <Skeleton3DViewer 
-          poseResult={poseResult} 
-          videoElement={videoElement} 
-          processedCanvas={processedCanvas} 
+      {cameraReady ? (
+        <Skeleton3DViewer
+          poseResult={poseResult}
+          videoElement={videoElement}
+          processedCanvas={hasData ? processedCanvas : null}
           />
       ) : (
         <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'center', height: '100%', color: 'rgba(255, 255, 255, 0.4)', flexDirection: 'column', gap: '10px', padding: '20px', textAlign: 'center' }}>

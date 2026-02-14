@@ -20,8 +20,6 @@ HIERARCHY = {
     'leftWrist': ['leftElbow', 'leftShoulder', 'neck', 'hipCentre'],
     'rightShoulder': ['neck', 'hipCentre'], 'rightElbow': ['rightShoulder', 'neck', 'hipCentre'],
     'rightWrist': ['rightElbow', 'rightShoulder', 'neck', 'hipCentre'],
-    'leftIndex': ['leftWrist', 'leftElbow', 'leftShoulder', 'neck', 'hipCentre'],
-    'rightIndex': ['rightWrist', 'rightElbow', 'rightShoulder', 'neck', 'hipCentre'],
 }
 
 OFFSET_DIRECTIONS = {
@@ -40,8 +38,6 @@ OFFSET_DIRECTIONS = {
             'rightShoulder': np.array([-1, 0, 0]),
             'rightElbow': np.array([-1, 0, 0]),
             'rightWrist': np.array([-1, 0, 0]),
-            'leftIndex': np.array([1, 0, 0]),
-            'rightIndex': np.array([-1, 0, 0]),
         }
 
 class Converter:
@@ -264,7 +260,7 @@ class Converter:
                 base_skeleton[right_joint] = OFFSET_DIRECTIONS[right_joint] * body_lengths[right_joint]
                 base_skeleton[left_joint] = OFFSET_DIRECTIONS[left_joint] * body_lengths[right_joint]
 
-        for joint_type in ['Hip', 'Knee', 'Ankle', 'Toe', 'Shoulder', 'Elbow', 'Wrist', 'Index']:
+        for joint_type in ['Hip', 'Knee', 'Ankle', 'Toe', 'Shoulder', 'Elbow', 'Wrist']:
             _set_length(joint_type)
         
         base_skeleton['neck'] = OFFSET_DIRECTIONS['neck'] * body_lengths.get('neck', 1)
@@ -379,6 +375,8 @@ class Converter:
                         logger.warning(f"Failed to compute rotation for joint {joint}: {e}")
             depth += 1
 
+        self._compute_wrist_rotations(frame_pos, frame_rotations)
+
         for _j in available:
             if _j not in frame_rotations:
                 frame_rotations[_j] = np.array([0., 0., 0.])
@@ -387,6 +385,77 @@ class Converter:
             self.kpts[joint + '_angles'] = frame_rotations[joint]
 
         self.kpts['computed_joints'] = list(frame_rotations.keys())
+
+    def _compute_wrist_rotations(self, frame_pos, frame_rotations):
+        """Compute wrist rotation from hand plane using index + thumb landmarks.
+
+        A single finger direction (wrist→index) barely changes with hand rotation
+        because it stays along the arm axis. By also using the thumb (which is
+        perpendicular to the fingers in T-pose), we capture the full hand plane
+        orientation, giving visible pronation/supination and flexion.
+        """
+        for side in ['left', 'right']:
+            wrist = side + 'Wrist'
+            index_joint = side + 'Index'
+            thumb = side + 'Thumb'
+
+            if wrist not in frame_pos or index_joint not in frame_pos:
+                continue
+
+            wrist_hierarchy = self.kpts['hierarchy'].get(wrist, [])
+            if not wrist_hierarchy:
+                continue
+
+            # De-rotate by all wrist parent rotations to get base/T-pose frame
+            _invR = np.eye(3)
+            for parent in wrist_hierarchy:
+                if parent in frame_rotations:
+                    _r_angles = frame_rotations[parent]
+                    R = get_R_z(_r_angles[0]) @ get_R_x(_r_angles[1]) @ get_R_y(_r_angles[2])
+                    _invR = _invR @ R.T
+
+            v_index = _invR @ (frame_pos[index_joint] - frame_pos[wrist])
+            idx_norm = np.sqrt(np.sum(np.square(v_index)))
+            if idx_norm < 1e-8:
+                continue
+
+            fwd_rest = np.array([1, 0, 0]) if side == 'left' else np.array([-1, 0, 0])
+            up_rest = np.array([0, 1, 0])
+
+            # Full 3DOF rotation using index + thumb hand plane
+            if thumb in frame_pos:
+                v_thumb = _invR @ (frame_pos[thumb] - frame_pos[wrist])
+                thumb_norm = np.sqrt(np.sum(np.square(v_thumb)))
+
+                if thumb_norm > 1e-8:
+                    hand_fwd = v_index / idx_norm
+                    hand_up = v_thumb / thumb_norm
+
+                    # Orthogonalize: remove forward component from up
+                    hand_up = hand_up - np.dot(hand_up, hand_fwd) * hand_fwd
+                    up_norm = np.sqrt(np.sum(np.square(hand_up)))
+
+                    if up_norm > 1e-8:
+                        hand_up = hand_up / up_norm
+                        hand_normal = np.cross(hand_fwd, hand_up)
+
+                        R_current = np.column_stack([hand_fwd, hand_up, hand_normal])
+                        normal_rest = np.cross(fwd_rest, up_rest)
+                        R_rest = np.column_stack([fwd_rest, up_rest, normal_rest])
+
+                        R_wrist = R_current @ R_rest.T
+                        tz, ty, tx = Decompose_R_ZXY(R_wrist)
+                        frame_rotations[wrist] = np.array([tz, tx, ty])
+                        continue
+
+            # Fallback: 2DOF from single finger direction
+            try:
+                hand_fwd = v_index / idx_norm
+                _R = Get_R2(fwd_rest, hand_fwd)
+                tz, ty, tx = Decompose_R_ZXY(_R)
+                frame_rotations[wrist] = np.array([tz, tx, ty])
+            except Exception as e:
+                logger.warning(f"Error computing wrist rotation for {wrist}: {e}")
 
     def _can_safely_compute_rotation(self, joint: str, frame_pos: dict, frame_rotations: dict) -> bool:
         """Check if we have all required data to compute rotation for a joint."""

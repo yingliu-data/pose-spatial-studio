@@ -5,7 +5,7 @@ import * as THREE from 'three';
 import { UnifiedFKData, RootPosition, UNIFIED_JOINT_NAMES } from '@/types/pose';
 import { JOINT_TO_BONE_MAP, MIXAMO_BONES } from './boneMapping';
 
-const AVATAR_GLB_PATH = '/src/avatars/skeleton.glb';
+const AVATAR_GLB_PATH = '/avatars/skeleton.glb';
 const SMOOTHING_FACTOR = 0.3; // 0 = no smoothing, 1 = no lag
 
 // Arm chain: LeftShoulder/RightShoulder bone sits between Spine2 and Arm in Mixamo

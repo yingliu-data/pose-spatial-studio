@@ -3,15 +3,13 @@ import os
 import json
 from utils.locate_path import get_project_root
 
-HOST = os.getenv("HOST", "0.0.0.0")
-PORT = int(os.getenv("PORT", 49101))  # Using 49101 as it's already exposed in Docker
+HOST = os.getenv("POSE_STUDIO_HOST", "0.0.0.0")
+PORT = int(os.getenv("POSE_STUDIO_PORT", 49101))
 DEBUG = False
 
 CORS_ORIGINS = [
-    # Local development
     "http://localhost:8585",
     "http://127.0.0.1:8585",
-    # Production
     "https://robot.yingliu.site",
 ]
 
@@ -27,7 +25,6 @@ CACHE_DIR = PROJECT_ROOT / ".cache"
 DEFAULT_CONFIG = json.load(open(BASE_DIR / "config_template.json", "r"))
 
 def merge_configs(user_config: dict) -> dict:
-    """Merge user config with defaults. User config overwrites defaults."""
     import copy
     merged = copy.deepcopy(DEFAULT_CONFIG)
     

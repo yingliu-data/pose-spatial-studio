@@ -9,9 +9,11 @@ import threading
 import subprocess
 import os
 
+from utils.kinetic import Converter
+
 logger = logging.getLogger(__name__)
 
-LANDMARK_NAMES = [
+MEDIAPIPE_LANDMARK_NAMES = [
     "nose", "left_eye_inner", "left_eye", "left_eye_outer",
     "right_eye_inner", "right_eye", "right_eye_outer",
     "left_ear", "right_ear", "mouth_left", "mouth_right",
@@ -23,25 +25,43 @@ LANDMARK_NAMES = [
     "left_foot_index", "right_foot_index"
 ]
 
-LANDMARK_INDEX_DICT = {name: idx for idx, name in enumerate(LANDMARK_NAMES)}
+LANDMARK_INDEX_DICT = {name: idx for idx, name in enumerate(MEDIAPIPE_LANDMARK_NAMES)}
 
-UPPER_LIMB_CENTRE_INDICES = [
-    LANDMARK_INDEX_DICT["left_shoulder"],
-    LANDMARK_INDEX_DICT["left_elbow"],
-    LANDMARK_INDEX_DICT["left_wrist"],
-    LANDMARK_INDEX_DICT["right_shoulder"],
-    LANDMARK_INDEX_DICT["right_elbow"],
-    LANDMARK_INDEX_DICT["right_wrist"]
-]
+POSE_CONNECTIONS = frozenset([
+    (0, 1), (1, 2), (2, 3), (3, 7), (0, 4), (4, 5), (5, 6), (6, 8),
+    (9, 10), (11, 12), (11, 13), (13, 15), (15, 17), (15, 19), (15, 21),
+    (17, 19), (12, 14), (14, 16), (16, 18), (16, 20), (16, 22), (18, 20),
+    (11, 23), (12, 24), (23, 24), (23, 25), (24, 26), (25, 27), (26, 28),
+    (27, 29), (28, 30), (29, 31), (30, 32), (27, 31), (28, 32),
+])
 
-LOWER_LIMB_CENTRE_INDICES = [
-    LANDMARK_INDEX_DICT["left_hip"],
-    LANDMARK_INDEX_DICT["left_knee"],
-    LANDMARK_INDEX_DICT["left_ankle"],
-    LANDMARK_INDEX_DICT["right_hip"],
-    LANDMARK_INDEX_DICT["right_knee"],
-    LANDMARK_INDEX_DICT["right_ankle"]
-]
+OUTPUT_LANDMARK_NAMES = {
+    'hipCentre': ['left_hip', 'right_hip'],
+    'neck': ['left_shoulder', 'right_shoulder'],
+    'leftEye': ['left_eye'],
+    'rightEye': ['right_eye'],
+    'rightShoulder': ['right_shoulder'],
+    'rightElbow': ['right_elbow'],
+    'rightWrist': ['right_wrist'],
+    'rightThumb': ['right_thumb'],
+    'rightIndex': ['right_index'],
+    'rightPinky': ['right_pinky'],
+    'leftShoulder': ['left_shoulder'],
+    'leftElbow': ['left_elbow'],
+    'leftWrist': ['left_wrist'],
+    'leftThumb': ['left_thumb'],
+    'leftIndex': ['left_index'],
+    'leftPinky': ['left_pinky'],
+    'rightHip': ['right_hip'],
+    'rightKnee': ['right_knee'],
+    'rightAnkle': ['right_ankle'],
+    'rightToe': ['right_foot_index'],
+    'leftHip': ['left_hip'],
+    'leftKnee': ['left_knee'],
+    'leftAnkle': ['left_ankle'],
+    'leftToe': ['left_foot_index']
+}
+
 
 MODEL_LINK = {
     "efficientdet_lite0.tflite": "https://storage.googleapis.com/mediapipe-models/object_detector/efficientdet_lite0/float16/latest/efficientdet_lite0.tflite",
@@ -67,7 +87,6 @@ class MediaPipeProcessor(BaseProcessor):
         self.object_detector_frame_height = pose_processor_config['object_detector_frame_height']
         self.landmarker = None
         self.object_detector = None
-        self.mp_pose = mp.solutions.pose
         self.latest_pose_result = None
         self.latest_object_result = None
         self.result_lock = threading.Lock()
@@ -171,57 +190,89 @@ class MediaPipeProcessor(BaseProcessor):
 
         if pose_result and pose_result.pose_landmarks:
             h, w, _ = annotated_frame.shape
+            landmark_dict = {}
             for pose_landmarks in pose_result.pose_landmarks:
-                landmarks.extend([{"x": float(lm.x), "y": float(lm.y), "z": float(lm.z),
-                                 "visibility": float(lm.visibility), "presence": float(lm.presence)} 
-                                 for lm in pose_landmarks])
+                for output_landmark_name, mediapipe_landmark_names in OUTPUT_LANDMARK_NAMES.items():
+                    landmark_dict[output_landmark_name] = {"x": float(np.mean([pose_landmarks[LANDMARK_INDEX_DICT[lm]].x for lm in mediapipe_landmark_names])),
+                                                        "y": float(np.mean([pose_landmarks[LANDMARK_INDEX_DICT[lm]].y for lm in mediapipe_landmark_names])),
+                                                        "z": float(np.mean([pose_landmarks[LANDMARK_INDEX_DICT[lm]].z for lm in mediapipe_landmark_names])),
+                                                        "visibility": float(np.mean([pose_landmarks[LANDMARK_INDEX_DICT[lm]].visibility for lm in mediapipe_landmark_names])),
+                                                        "presence": float(np.mean([pose_landmarks[LANDMARK_INDEX_DICT[lm]].presence for lm in mediapipe_landmark_names])),
+                                                        }
+                landmarks.append(landmark_dict)
+            
                 for landmark in pose_landmarks:
                     cv2.circle(annotated_frame, (int(landmark.x * w), int(landmark.y * h)), 5, (0, 255, 0), -1)
-                for start_idx, end_idx in self.mp_pose.POSE_CONNECTIONS:
+                for start_idx, end_idx in POSE_CONNECTIONS:
                     if start_idx < len(pose_landmarks) and end_idx < len(pose_landmarks):
                         cv2.line(annotated_frame, (int(pose_landmarks[start_idx].x * w), int(pose_landmarks[start_idx].y * h)),
                                 (int(pose_landmarks[end_idx].x * w), int(pose_landmarks[end_idx].y * h)), (255, 0, 0), 2)
         
         if pose_result and pose_result.pose_world_landmarks:
-            for world_landmark_list in pose_result.pose_world_landmarks:
-                world_landmarks.extend([{"x": float(lm.x), "y": float(lm.y), "z": float(lm.z),
-                                       "visibility": float(lm.visibility), "presence": float(lm.presence)} 
-                                       for lm in world_landmark_list])
+            for world_pose_landmarks in pose_result.pose_world_landmarks:
+                world_landmark_dict = {}
+                for output_landmark_name, mediapipe_landmark_names in OUTPUT_LANDMARK_NAMES.items():
+                    world_landmark_dict[output_landmark_name] = {"x": float(np.mean([world_pose_landmarks[LANDMARK_INDEX_DICT[lm]].x for lm in mediapipe_landmark_names])),
+                                                        "y": float(np.mean([world_pose_landmarks[LANDMARK_INDEX_DICT[lm]].y for lm in mediapipe_landmark_names])),
+                                                        "z": float(np.mean([world_pose_landmarks[LANDMARK_INDEX_DICT[lm]].z for lm in mediapipe_landmark_names])),
+                                                        "visibility": float(np.mean([world_pose_landmarks[LANDMARK_INDEX_DICT[lm]].visibility for lm in mediapipe_landmark_names])),
+                                                        "presence": float(np.mean([world_pose_landmarks[LANDMARK_INDEX_DICT[lm]].presence for lm in mediapipe_landmark_names])),
+                                                        }
+                world_landmarks.append(world_landmark_dict)
         
+        # Get root position from hip center
+        root_position = None
+        if world_landmarks and len(world_landmarks) > 0:
+            hip_data = world_landmarks[0].get("hipCentre", {})
+            if hip_data:
+                # Transform from MediaPipe (Y-down, Z-forward) to Three.js (Y-up, Z-backward)
+                root_position = {
+                    "x": float(hip_data.get("x", 0)),
+                    "y": float(-hip_data.get("y", 0)),
+                    "z": float(-hip_data.get("z", 0))
+                }
+        
+        # Convert back to BGR for cv2.imencode in websocket handler
+        annotated_frame = cv2.cvtColor(annotated_frame, cv2.COLOR_RGB2BGR)
+
         return {
             "processed_frame": annotated_frame,
             "data": {
-                "landmarks": landmarks, 
+                "landmarks": landmarks,
                 "world_landmarks": world_landmarks,
-                "upper_limb_centre": self._limb_centre(landmarks, "upper"),
-                "lower_limb_centre": self._limb_centre(landmarks, "lower"),
+                "fk_data": self._fk_processing(world_landmarks),
+                "root_position": root_position,
                 "num_poses": len(pose_result.pose_landmarks) if pose_result and pose_result.pose_landmarks else 0},
             "timestamp_ms": timestamp_ms,
             "processor_id": self.processor_id
         }
 
-    def _limb_centre(self, pose_landmarks: List[Dict[str, float]], limb="upper") -> Dict[str, float]:
-        if not pose_landmarks:
-            return {'2d': None, '3d': None}
-        
-        if limb == "upper":
-            indices = UPPER_LIMB_CENTRE_INDICES
-        elif limb == "lower":
-            indices = LOWER_LIMB_CENTRE_INDICES
+    def _fk_processing(self, world_landmarks: List[Dict[str, float]]) -> Dict[str, float]:
+        if world_landmarks:
+            # Transform coordinates from MediaPipe (Y-down, Z-forward) to Three.js (Y-up, Z-backward)
+            transformed = {}
+            for joint_name, joint_data in world_landmarks[0].items():
+                if isinstance(joint_data, dict) and all(k in joint_data for k in ["x", "y", "z"]):
+                    transformed[joint_name] = {
+                        "x": float(joint_data["x"]),
+                        "y": float(-joint_data["y"]),
+                        "z": float(-joint_data["z"]),
+                        "visibility": float(joint_data.get("visibility", 0.0)),
+                        "presence": float(joint_data.get("presence", 0.0)),
+                    }
+                else:
+                    transformed[joint_name] = joint_data
+            converter = Converter()
+            fk_data = converter.coordinate2angle(transformed)
+            for joint_name, quat_data in fk_data.items():
+                if isinstance(quat_data, dict):
+                    original_joint = world_landmarks[0].get(joint_name, {})
+                    visibility = original_joint.get("visibility", 0.0) if isinstance(original_joint, dict) else 0.0
+                    quat_data["visibility"] = float(visibility)
         else:
-            raise ValueError(f"Invalid limb: {limb}")
-        
-        points = np.array(
-            [[pose_landmarks[i]['x'], pose_landmarks[i]['y'], pose_landmarks[i]['z']] for i in indices],
-            dtype=np.float32
-        )
-        mean_point = np.mean(points, axis=0)
-        centre_2d = float(np.linalg.norm(mean_point[:2]))
-        centre_3d = float(np.linalg.norm(mean_point))
-        return {
-            '2d': centre_2d, 
-            '3d': centre_3d
-            }
+            fk_data = {}
+        return fk_data
+
 
     def cleanup(self):
         if self.landmarker:

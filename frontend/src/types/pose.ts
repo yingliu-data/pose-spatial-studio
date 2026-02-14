@@ -6,17 +6,49 @@ export interface Landmark {
   presence: number;
 }
 
-export interface LimbCentre {
-  '2d': number;
-  '3d': number;
+export interface FKLandmark {
+  x: number;
+  y: number;
+  z: number;
+  w: number;
+  visibility: number;
 }
 
+export interface RootPosition {
+  x: number;
+  y: number;
+  z: number;
+}
+
+export interface LimbCentre {
+  '2d': number | null;
+  '3d': number | null;
+}
+
+export const UNIFIED_JOINT_NAMES = [
+  'hipCentre', 'neck',
+  'rightShoulder', 'rightElbow', 'rightWrist', 'rightThumb', 'rightIndex', 'rightPinky',
+  'leftShoulder', 'leftElbow', 'leftWrist', 'leftThumb', 'leftIndex', 'leftPinky',
+  'rightHip', 'rightKnee', 'rightAnkle', 'rightToe',
+  'leftHip', 'leftKnee', 'leftAnkle', 'leftToe',
+] as const;
+
+export type UnifiedJointName = typeof UNIFIED_JOINT_NAMES[number];
+
+export type UnifiedJoints = {
+  [K in UnifiedJointName]?: Landmark | null;
+};
+
+export type UnifiedFKData = {
+  [K in UnifiedJointName]?: FKLandmark | null;
+};
+
 export interface PoseData {
-  landmarks: Landmark[];
-  world_landmarks: Landmark[];
+  landmarks: UnifiedJoints[];
+  world_landmarks: UnifiedJoints[];
+  fk_data?: UnifiedFKData | null;
+  root_position?: RootPosition;
   num_poses: number;
-  upper_limb_centre?: LimbCentre;
-  lower_limb_centre?: LimbCentre;
 }
 
 export interface PoseResult {
@@ -30,4 +62,3 @@ export interface StreamConfig {
   stream_id: string;
   processor_config?: Record<string, any>;
 }
-

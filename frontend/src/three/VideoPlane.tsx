@@ -21,6 +21,7 @@ export function VideoPlane({
   const textureRef = useRef<THREE.Texture | null>(null);
 
   useEffect(() => {
+    const oldTexture = textureRef.current;
     if (canvasElement) {
       const texture = new THREE.CanvasTexture(canvasElement);
       texture.minFilter = texture.magFilter = THREE.LinearFilter;
@@ -31,6 +32,9 @@ export function VideoPlane({
       texture.minFilter = texture.magFilter = THREE.LinearFilter;
       texture.format = THREE.RGBAFormat;
       textureRef.current = texture;
+    }
+    if (oldTexture && oldTexture !== textureRef.current) {
+      oldTexture.dispose();
     }
   }, [videoElement, canvasElement]);
 

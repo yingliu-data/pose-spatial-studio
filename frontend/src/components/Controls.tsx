@@ -188,11 +188,11 @@ export function Controls({
             <div className="form-group">
               <label>Camera Device</label>
               {devicesLoading ? (
-                <div style={{ padding: '10px', color: '#888', fontSize: '14px' }}>
+                <div style={{ padding: '10px', color: 'rgba(255, 255, 255, 0.4)', fontSize: '14px' }}>
                   Loading cameras...
                 </div>
               ) : devices.length === 0 ? (
-                <div style={{ padding: '10px', color: '#ff4444', fontSize: '14px' }}>
+                <div style={{ padding: '10px', color: '#ff453a', fontSize: '14px' }}>
                   No cameras found. Please connect a camera.
                 </div>
               ) : (
@@ -225,7 +225,7 @@ export function Controls({
               />
               <small>
                 {formData.videoFile ? (
-                  <span style={{ color: '#00ff00' }}>✓ Selected: {formData.videoFile.name}</span>
+                  <span style={{ color: '#30d158' }}>✓ Selected: {formData.videoFile.name}</span>
                 ) : (
                   'MP4, WebM, or other video formats'
                 )}
@@ -242,7 +242,7 @@ export function Controls({
             />
             <small>
               {formData.configFile ? (
-                <span style={{ color: '#00ff00' }}>✓ Loaded: {formData.configFile.name}</span>
+                <span style={{ color: '#30d158' }}>✓ Loaded: {formData.configFile.name}</span>
               ) : (
                 'JSON config for processor settings'
               )}

@@ -7,20 +7,15 @@ on:
         description: 'Backend SSH hostname'
         required: false
         default: 'pose-backend-ssh.yingliu.site'
-  pull_request:
+  push:
     branches:
       - main
-    types:
-      - closed
     paths:
       - 'backend/**'
       - '.github/workflows/deploy_backend.yml'
 
 jobs:
   deploy:
-    if: >
-      github.event_name == 'workflow_dispatch' ||
-      (github.event_name == 'pull_request' && github.event.pull_request.merged == true)
     runs-on: ubuntu-latest
     steps:
       - name: Checkout

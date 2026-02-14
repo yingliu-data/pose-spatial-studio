@@ -56,7 +56,7 @@ jobs:
         run: cat ~/.ssh/config
 
       - name: Test SSH via Cloudflare
-        run: ssh -vvv -o StrictHostKeyChecking=accept-new pose-backend "echo 'SSH OK via Cloudflare'"
+        run: ssh -o StrictHostKeyChecking=accept-new pose-backend "echo 'SSH OK via Cloudflare'"
 
       - name: Deploy to container and restart
         run: |
@@ -81,7 +81,7 @@ jobs:
             docker cp /tmp/backend-staging/. $CONTAINER:/root/backend/
 
             echo "=== Installing dependencies ==="
-            docker exec $CONTAINER bash -c "cd /root/backend && pip install -r requirements.txt -q"
+            docker exec $CONTAINER bash -c "cd /root/backend && pip install --break-system-packages -r requirements.txt -q"
 
             echo "=== Restarting app.py ==="
             docker exec $CONTAINER bash -c "pkill -f 'python.*app.py' || true"

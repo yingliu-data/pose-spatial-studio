@@ -39,6 +39,14 @@
 - Secrets managed in GitHub Actions (SSH keys, host addresses, backend URL).
 
 #### Remaining Phase 1 items
+- Staging environment (Todo)
+  - Cloudflare DNS: add `staging.robot.yingliu.site` → VM1, `staging-backend.yingliu.site` → VM2.
+  - VM1: add nginx server block serving `/var/www/staging` on staging subdomain.
+  - VM2: create second Docker container for staging backend on port `49102`.
+  - CORS: add staging origins to backend `config.py`.
+  - GitHub Actions: duplicate `deploy_backend.yml` and `deploy_frontend.yml` to trigger on push to `staging` branch, deploying to staging paths/container.
+  - Frontend: add `.env.staging` with `VITE_BACKEND_URL=https://staging-backend.yingliu.site`.
+  - Git flow: feature branches → merge to `staging` → verify on staging URL → merge to `main` for production.
 - Dockerfile (Todo)
   - Create a reproducible `backend/Dockerfile` (CUDA base image) so the container can be rebuilt from scratch.
 - docker-compose.yml (Todo)

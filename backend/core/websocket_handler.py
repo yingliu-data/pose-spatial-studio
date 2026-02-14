@@ -144,19 +144,22 @@ class WebSocketHandler:
                 if 'image_processor' in processor_pipeline:
                     processed_frame = processor_pipeline['image_processor'].process_frame(processed_frame, timestamp)
                 if 'date_processor' in processor_pipeline:
-                    processed_frame = processor_pipeline['date_processor'].process_frame(processed_frame, timestamp)
+                    data_result = processor_pipeline['date_processor'].process_frame(processed_frame, timestamp)
+                    if data_result is not None:
+                        processed_frame = data_result
                 if 'pose_processor' in processor_pipeline:
                     result = processor_pipeline['pose_processor'].process_frame(processed_frame, timestamp)
-                    processed_frame = None if result is None else result['processed_frame']
-                    pose_data = None if result is None else result['data']
-                if processed_frame is not None:
-                    _, buffer = cv2.imencode('.jpg', processed_frame, [cv2.IMWRITE_JPEG_QUALITY, 100])
-                    await self.sio.emit('pose_result', {
-                        'stream_id': stream_id,
-                        'frame': base64.b64encode(buffer).decode('utf-8'),
-                        'pose_data': pose_data,
-                        'timestamp_ms': timestamp
-                    }, room=sid)
+                    if result is not None:
+                        processed_frame = result['processed_frame']
+                        pose_data = result['data']
+
+                _, buffer = cv2.imencode('.jpg', processed_frame, [cv2.IMWRITE_JPEG_QUALITY, 100])
+                await self.sio.emit('pose_result', {
+                    'stream_id': stream_id,
+                    'frame': base64.b64encode(buffer).decode('utf-8'),
+                    'pose_data': pose_data,
+                    'timestamp_ms': timestamp
+                }, room=sid)
                 
             except Exception as e:
                 logger.error(f"Error processing frame: {e}", exc_info=True)

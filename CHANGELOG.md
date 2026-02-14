@@ -4,6 +4,11 @@ All notable changes to the Pose Spatial Studio project will be documented in thi
 
 The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.0.0/).
 
+## [1.1.2] - 14 February 2026
+
+### Fixed
+- Frontend deploy workflow skipped on merge: switch from pull_request trigger to push trigger on main, matching backend pattern
+
 ## [1.1.1] - 14 February 2026
 
 ### Fixed

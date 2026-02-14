@@ -1,28 +1,15 @@
 name: Deploy frontend
 on:
   workflow_dispatch:
-    inputs:
-      force_deploy:
-        description: 'Run deploy even without merged PR from develop'
-        required: false
-        default: 'true'
-  pull_request:
+  push:
     branches:
       - main
-    types:
-      - closed
     paths:
       - 'frontend/**'
       - '.github/workflows/deploy_frontend.yml'
 
 jobs:
   deploy:
-    if: >
-      (github.event_name == 'pull_request' &&
-       github.event.pull_request.merged == true &&
-       github.event.pull_request.head.ref == 'develop') ||
-      (github.event_name == 'workflow_dispatch' &&
-       inputs.force_deploy == 'true')
     runs-on: ubuntu-latest
 
     defaults:
@@ -32,8 +19,6 @@ jobs:
     steps:
       - name: Checkout
         uses: actions/checkout@v4
-        with:
-          ref: ${{ github.event.pull_request.base.ref || github.ref }}
 
       - name: Setup Node
         uses: actions/setup-node@v4

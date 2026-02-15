@@ -49,6 +49,8 @@ class RTMPoseProcessor(BaseProcessor):
     def __init__(self, processor_id: str, config_dict: Optional[Dict[str, Any]] = None):
         super().__init__(processor_id, config_dict)
         pose_processor_config = self.config['pose_processor']
+        self.openpose_skeleton = pose_processor_config.get('openpose_skeleton', False)
+        self.mode = pose_processor_config.get('mode', 'lightweight')
         self.backend = pose_processor_config.get('backend', 'onnxruntime')
         self.device = pose_processor_config.get('device', 'cpu')
 

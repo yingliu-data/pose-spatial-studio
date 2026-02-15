@@ -4,7 +4,7 @@ python-socketio==5.11.1
 opencv-python
 mediapipe
 numpy
-rtmlib>=0.0.14
+rtmlib -i https://pypi.org/simple
 onnxruntime-gpu
 tqdm
 

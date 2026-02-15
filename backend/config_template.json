@@ -29,7 +29,7 @@
         "object_detector_frame_height": 448,
         "num_poses": 1,
         "openpose_skeleton": false,
-        "mode": "balanced",
+        "mode": "lightweight",
         "backend": "onnxruntime",
         "device": "auto"
     }

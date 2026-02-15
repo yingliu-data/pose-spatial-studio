@@ -227,6 +227,7 @@ class WebSocketHandler:
         finally:
             self._active_streams.discard(processor_id)
 
+
     def _run_pipeline_sync(self, processor_pipeline, frame, timestamp):
         """Run the processor pipeline synchronously. Called from thread pool."""
         pose_data = None

@@ -1,7 +1,7 @@
 import { useState } from 'react';
 import { Socket } from 'socket.io-client';
 import { CameraCapture } from './CameraCapture';
-import { Skeleton3DViewer } from './Skeleton3DViewer';
+import { Skeleton3DViewer, type RendererType } from './Skeleton3DViewer';
 import { PoseResult } from '@/types/pose';
 
 interface Stream {
@@ -39,6 +39,7 @@ const overlayStyle = {
 export function StreamViewer({ socket, stream, poseResult, onVideoElementReady }: StreamViewerProps) {
   const [videoElement, setVideoElement] = useState<HTMLVideoElement | null>(null);
   const [processedCanvas, setProcessedCanvas] = useState<HTMLCanvasElement | null>(null);
+  const [rendererType, setRendererType] = useState<RendererType>('avatar');
   const hasData = !!(poseResult?.frame);
   const cameraReady = !!(videoElement);
 
@@ -57,6 +58,7 @@ export function StreamViewer({ socket, stream, poseResult, onVideoElementReady }
           poseResult={poseResult}
           videoElement={videoElement}
           processedCanvas={processedCanvas}
+          rendererType={rendererType}
         />
       );
     }
@@ -99,6 +101,16 @@ export function StreamViewer({ socket, stream, poseResult, onVideoElementReady }
       />
       {renderContent()}
       <div style={{ ...overlayStyle, top: 14, left: 14 }}>{stream.streamId}</div>
+      <button
+        onClick={() => setRendererType(prev => prev === 'avatar' ? 'stickball' : 'avatar')}
+        style={{ ...overlayStyle, top: 14, right: 14, pointerEvents: 'auto', cursor: 'pointer', display: 'flex', alignItems: 'center', gap: '6px', transition: 'background 0.2s' }}
+        onMouseEnter={e => (e.currentTarget.style.background = 'rgba(255, 255, 255, 0.16)')}
+        onMouseLeave={e => (e.currentTarget.style.background = 'rgba(255, 255, 255, 0.08)')}
+        title={`Switch to ${rendererType === 'avatar' ? 'skeleton' : 'avatar'}`}
+      >
+        <span style={{ fontSize: '13px' }}>{rendererType === 'avatar' ? '🧍' : '🦴'}</span>
+        <span>{rendererType === 'avatar' ? 'Avatar' : 'Skeleton'}</span>
+      </button>
       <div style={{ ...overlayStyle, bottom: 14, right: 14 }}>
         <div style={{ display: 'flex', alignItems: 'center', gap: '6px' }}>
           <span style={{ display: 'inline-block', width: '6px', height: '6px', borderRadius: '50%', background: hasData ? '#30d158' : '#ff9f0a', boxShadow: hasData ? '0 0 10px rgba(48, 209, 88, 0.5)' : '0 0 10px rgba(255, 159, 10, 0.5)', animation: 'pulse 2s ease-in-out infinite' }} />

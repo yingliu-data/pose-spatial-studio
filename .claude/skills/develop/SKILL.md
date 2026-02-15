@@ -31,6 +31,8 @@ Thoroughly analyze the requirement by:
 1. Breaking down the request into discrete components
 2. Identifying acceptance criteria, dependencies, and any linked PRDs or designs
 3. Using `AskUserQuestion` to clarify any ambiguities
+4. Search the web for a better solution
+5. Understand the project based on `PROJECT_STRUCTURE.md`
 
 Document the following:
 - Summary of the requirement
@@ -133,21 +135,24 @@ You can test either **manually** or using **automated Playwright testing**.
 
 #### Option A: Automated Testing with Playwright (Recommended)
 
-Use Playwright MCP to automate UI testing:
+Use Playwright for automated UI testing. See `tests/README.md` for full setup and usage.
 
-1. **Load Playwright tools:**
+1. **Run tests from the `tests/` directory:**
+   ```bash
+   cd tests
+   npm test
+   ```
+
+2. **Or use Playwright MCP tools in Claude Code:**
    ```
    Use ToolSearch with query: "playwright"
    ```
-
-2. **Run automated test:**
    - Navigate to `http://localhost:8585`
    - Fill in camera name as `test`
    - Select laptop camera option
    - Capture screenshots and validate pose detection
-   - Verify avatar movement matches expected behavior
 
-3. **Reference test script:** See `tests/pose_validation.spec.ts` for the full Playwright test suite
+3. **Reference test script:** See `tests/specs/pose-validation.spec.ts` for the full Playwright test suite
 
 #### Option B: Manual Testing
 

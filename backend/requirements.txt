@@ -4,7 +4,8 @@ python-socketio==5.11.1
 opencv-python
 mediapipe
 numpy
-rtmlib -i https://pypi.org/simple
+rtmlib>=0.0.14
+onnxruntime-gpu
 tqdm
 
 # CLIP for image retrieval

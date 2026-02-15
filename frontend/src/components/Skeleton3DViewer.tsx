@@ -6,8 +6,7 @@ import { PoseResult } from '@/types/pose';
 import { StickBallRenderer } from '@/three/StickBallRenderer';
 import { AvatarRenderer } from '@/three/AvatarRenderer';
 
-type RendererType = 'stickball' | 'avatar';
-const ACTIVE_RENDERER: RendererType = 'avatar';
+export type RendererType = 'stickball' | 'avatar';
 
 // Error boundary to catch Three.js / Canvas crashes without unmounting the whole app
 class ViewerErrorBoundary extends Component<{ children: ReactNode }, { error: Error | null }> {
@@ -29,9 +28,10 @@ interface Skeleton3DViewerProps {
   poseResult: PoseResult | null;
   videoElement: HTMLVideoElement | null;
   processedCanvas: HTMLCanvasElement | null;
+  rendererType?: RendererType;
 }
 
-export function Skeleton3DViewer({ poseResult, videoElement, processedCanvas }: Skeleton3DViewerProps) {
+export function Skeleton3DViewer({ poseResult, videoElement, processedCanvas, rendererType = 'avatar' }: Skeleton3DViewerProps) {
   useEffect(() => {
     console.log('[3D] Skeleton3DViewer mounted', { hasVideo: !!videoElement, hasCanvas: !!processedCanvas, hasPose: !!poseResult?.pose_data });
     return () => console.log('[3D] Skeleton3DViewer unmounted');
@@ -39,7 +39,7 @@ export function Skeleton3DViewer({ poseResult, videoElement, processedCanvas }: 
   const renderSkeleton = () => {
     if (!poseResult?.pose_data) return null;
 
-    if (ACTIVE_RENDERER === 'avatar') {
+    if (rendererType === 'avatar') {
       return (
         <AvatarRenderer
           fkData={poseResult.pose_data.fk_data ?? null}

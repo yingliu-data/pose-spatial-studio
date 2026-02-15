@@ -74,7 +74,7 @@ test.describe('Pose Capture and Avatar Validation', () => {
 
     // Step 5: Take screenshot for visual verification
     await page.screenshot({
-      path: 'test-results/pose-capture-workflow.png',
+      path: 'results/pose-capture-workflow.png',
       fullPage: true
     });
   });
@@ -117,13 +117,13 @@ test.describe('Pose Capture and Avatar Validation', () => {
     await page.waitForTimeout(3000);
 
     // Take initial screenshot
-    await page.screenshot({ path: 'test-results/pose-initial.png' });
+    await page.screenshot({ path: 'results/pose-initial.png' });
 
     // Simulate waiting for pose change
     await page.waitForTimeout(2000);
 
     // Take another screenshot to compare
-    await page.screenshot({ path: 'test-results/pose-after-movement.png' });
+    await page.screenshot({ path: 'results/pose-after-movement.png' });
 
     // In a real test, you would compare these images or check for specific avatar position changes
     // For now, we just verify the avatar is still visible

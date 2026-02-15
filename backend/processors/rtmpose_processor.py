@@ -152,6 +152,7 @@ class RTMPoseProcessor(BaseProcessor):
         if frame is None or np.isnan(frame).any():
             return None
 
+        frame = np.ascontiguousarray(frame)
         keypoints, scores = self.wholebody(frame)
         annotated_frame = draw_skeleton(frame, keypoints, scores, openpose_skeleton=self.openpose_skeleton, kpt_thr=0.5)
 

@@ -174,12 +174,22 @@ Test the backend changes against the production frontend:
 
 ### Automated testing (optional)
 
-Use Playwright for automated validation:
+Use Playwright for automated validation. See `tests/README.md` for full setup.
+
+```bash
+cd tests
+npm test                    # run all tests
+npm run test:headed         # run with visible browser
+```
+
+Or use Playwright MCP tools in Claude Code:
 1. Load Playwright tools via `ToolSearch` with query: `"playwright"`
 2. Navigate to `http://localhost:8585`
 3. Fill camera name as `test`, select laptop camera
 4. Verify pose detection renders and avatar responds
 5. Capture screenshots for visual confirmation
+
+Test specs are in `tests/specs/`. See `tests/specs/pose-validation.spec.ts` for the existing test suite.
 
 ---
 

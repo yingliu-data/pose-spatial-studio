@@ -97,6 +97,7 @@ class RTMPoseProcessor(BaseProcessor):
 
         fk_data = self._fk_processing(world_landmarks)
 
+
         root_position = None
         if world_landmarks:
             hip_data = world_landmarks[0].get("hipCentre", {})
@@ -200,6 +201,7 @@ class RTMPoseProcessor(BaseProcessor):
                 quat_data["visibility"] = float(visibility)
 
         return fk_data
+
 
     def cleanup(self):
         self._is_initialized = False

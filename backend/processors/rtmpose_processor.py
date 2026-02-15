@@ -1,6 +1,8 @@
 from rtmlib import Wholebody, draw_skeleton
 from typing import Optional, List, Dict, Any
 from processors.base_processor import BaseProcessor
+from processors.mediapipe_processor import OUTPUT_LANDMARK_NAMES, LANDMARK_INDEX_DICT
+from utils.kinetic import Converter
 import logging
 import numpy as np
 
@@ -149,22 +151,97 @@ class RTMPoseProcessor(BaseProcessor):
 
         if frame is None or np.isnan(frame).any():
             return None
-        
+
         keypoints, scores = self.wholebody(frame)
         annotated_frame = draw_skeleton(frame, keypoints, scores, openpose_skeleton=self.openpose_skeleton, kpt_thr=0.5)
-        landmarks = convert_rtmpose_to_mediapipe_format(keypoints, scores, frame.shape, self.openpose_skeleton)
+
+        # Convert RTMPose output to MediaPipe 33-point flat list
+        flat_landmarks = convert_rtmpose_to_mediapipe_format(keypoints, scores, frame.shape, self.openpose_skeleton)
+
+        # Convert flat list to named dict format matching MediaPipe output
+        landmarks = self._to_named_landmarks(flat_landmarks)
+        world_landmarks = landmarks  # RTMPose has no separate world coordinates
+
+        # FK processing for avatar animation
+        fk_data = self._fk_processing(world_landmarks)
+
+        # Root position from hip centre
+        root_position = None
+        if world_landmarks:
+            hip_data = world_landmarks[0].get("hipCentre", {})
+            if hip_data:
+                root_position = {
+                    "x": float(hip_data.get("x", 0)),
+                    "y": float(-hip_data.get("y", 0)),
+                    "z": float(-hip_data.get("z", 0))
+                }
+
         return {
             "processed_frame": annotated_frame,
             "data": {
-                "landmarks": landmarks, 
-                "world_landmarks": landmarks,
+                "landmarks": landmarks,
+                "world_landmarks": world_landmarks,
+                "fk_data": fk_data,
+                "root_position": root_position,
                 "num_poses": len(keypoints) if keypoints is not None and len(keypoints) > 0 else 0,
-                "upper_limb_centre": self._limb_centre(landmarks, "upper"),
-                "lower_limb_centre": self._limb_centre(landmarks, "lower"),
             },
             "timestamp_ms": timestamp_ms,
             "processor_id": self.processor_id
         }
+
+    def _to_named_landmarks(self, flat_landmarks: List[Dict]) -> List[Dict]:
+        """Convert flat 33-point landmark list to named dict format matching MediaPipe output."""
+        if not flat_landmarks or len(flat_landmarks) < 33:
+            return []
+
+        named_landmarks = []
+        # Each person has 33 landmarks
+        for i in range(0, len(flat_landmarks), 33):
+            person_points = flat_landmarks[i:i + 33]
+            if len(person_points) < 33:
+                break
+
+            landmark_dict = {}
+            for output_name, mediapipe_names in OUTPUT_LANDMARK_NAMES.items():
+                indices = [LANDMARK_INDEX_DICT[name] for name in mediapipe_names]
+                landmark_dict[output_name] = {
+                    "x": float(np.mean([person_points[idx]["x"] for idx in indices])),
+                    "y": float(np.mean([person_points[idx]["y"] for idx in indices])),
+                    "z": float(np.mean([person_points[idx]["z"] for idx in indices])),
+                    "visibility": float(np.mean([person_points[idx]["visibility"] for idx in indices])),
+                    "presence": float(np.mean([person_points[idx]["presence"] for idx in indices])),
+                }
+            named_landmarks.append(landmark_dict)
+
+        return named_landmarks
+
+    def _fk_processing(self, world_landmarks: List[Dict]) -> Dict:
+        """Compute forward kinematics bone rotations from world landmarks."""
+        if not world_landmarks:
+            return {}
+
+        transformed = {}
+        for joint_name, joint_data in world_landmarks[0].items():
+            if isinstance(joint_data, dict) and all(k in joint_data for k in ["x", "y", "z"]):
+                transformed[joint_name] = {
+                    "x": float(joint_data["x"]),
+                    "y": float(-joint_data["y"]),
+                    "z": float(-joint_data["z"]),
+                    "visibility": float(joint_data.get("visibility", 0.0)),
+                    "presence": float(joint_data.get("presence", 0.0)),
+                }
+            else:
+                transformed[joint_name] = joint_data
+
+        converter = Converter()
+        fk_data = converter.coordinate2angle(transformed)
+        for joint_name, quat_data in fk_data.items():
+            if isinstance(quat_data, dict):
+                original_joint = world_landmarks[0].get(joint_name, {})
+                visibility = original_joint.get("visibility", 0.0) if isinstance(original_joint, dict) else 0.0
+                quat_data["visibility"] = float(visibility)
+
+        return fk_data
     
     def cleanup(self):
         self._is_initialized = False

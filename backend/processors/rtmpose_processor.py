@@ -49,8 +49,6 @@ class RTMPoseProcessor(BaseProcessor):
     def __init__(self, processor_id: str, config_dict: Optional[Dict[str, Any]] = None):
         super().__init__(processor_id, config_dict)
         pose_processor_config = self.config['pose_processor']
-        self.openpose_skeleton = pose_processor_config.get('openpose_skeleton', False)
-        self.mode = pose_processor_config.get('mode', 'lightweight')
         self.backend = pose_processor_config.get('backend', 'onnxruntime')
         self.device = pose_processor_config.get('device', 'cpu')
 
@@ -96,7 +94,6 @@ class RTMPoseProcessor(BaseProcessor):
         world_landmarks = self._build_world_landmarks(keypoints_3d, scores)
 
         fk_data = self._fk_processing(world_landmarks)
-
 
         root_position = None
         if world_landmarks:
@@ -201,7 +198,6 @@ class RTMPoseProcessor(BaseProcessor):
                 quat_data["visibility"] = float(visibility)
 
         return fk_data
-
 
     def cleanup(self):
         self._is_initialized = False

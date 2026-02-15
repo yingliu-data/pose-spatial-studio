@@ -37,11 +37,12 @@ COCO133_TO_OUTPUT_JOINTS = {
 }
 
 # RTMPose3D model constants for 3D coordinate normalization
-# Model input (288, 384), simcc_split_ratio=2 → x in [0,144], y in [0,192]
-_SIMCC_HALF_W = 72.0
-_SIMCC_HALF_H = 96.0
+# After simcc postprocess, x,y are in model-input pixel space: x in [0,288), y in [0,384)
+# z is already converted to meters via (z_simcc / (H/2) - 1) * z_range
+_MODEL_HALF_W = 144.0   # model_input_size[0] / 2 = 288 / 2
+_MODEL_HALF_H = 192.0   # model_input_size[1] / 2 = 384 / 2
 _Z_RANGE = 2.1744869
-_SCALE = _Z_RANGE / _SIMCC_HALF_H  # uniform scale to match z (meters)
+_SCALE = _Z_RANGE / _MODEL_HALF_H  # meters per pixel in model space
 
 
 class RTMPoseProcessor(BaseProcessor):
@@ -145,9 +146,9 @@ class RTMPoseProcessor(BaseProcessor):
                                 scores: np.ndarray) -> List[Dict]:
         """Build 3D world landmarks from RTMPose3D keypoints.
 
-        RTMPose3D outputs x,y in model-input half-space and z in meters.
-        We normalize x,y to meter-like scale so the FK converter gets
-        bone vectors with consistent proportions across all three axes.
+        RTMPose3D outputs x,y in model pixel space [0,288)x[0,384) and z
+        already in meters. We center and scale x,y to meters using the same
+        scale factor as the model's z normalization.
         """
         result = []
         for person_kpts, person_scores in zip(keypoints_3d, scores):
@@ -161,8 +162,8 @@ class RTMPoseProcessor(BaseProcessor):
                     }
                     continue
                 landmark_dict[joint_name] = {
-                    "x": float(np.mean([(person_kpts[i][0] - _SIMCC_HALF_W) * _SCALE for i in valid])),
-                    "y": float(np.mean([(person_kpts[i][1] - _SIMCC_HALF_H) * _SCALE for i in valid])),
+                    "x": float(np.mean([(person_kpts[i][0] - _MODEL_HALF_W) * _SCALE for i in valid])),
+                    "y": float(np.mean([(person_kpts[i][1] - _MODEL_HALF_H) * _SCALE for i in valid])),
                     "z": float(np.mean([person_kpts[i][2] for i in valid])),
                     "visibility": float(np.mean([person_scores[i] for i in valid])),
                     "presence": float(np.mean([person_scores[i] for i in valid])),

@@ -1,6 +1,7 @@
+import asyncio
 import logging
-from multiprocessing import process
 import json
+from concurrent.futures import ThreadPoolExecutor
 
 import cv2
 import numpy as np
@@ -19,6 +20,7 @@ class WebSocketHandler:
     def __init__(self, sio):
         self.sio = sio
         self.processors: Dict[str, Dict[str, BaseProcessor]] = {}
+        self._executor = ThreadPoolExecutor(max_workers=4, thread_name_prefix="pose-worker")
         self.setup_handlers()
     
     def setup_handlers(self):
@@ -142,22 +144,14 @@ class WebSocketHandler:
 
                 processor_pipeline = self.processors[processor_id]
 
-                pose_data = None
-                processed_frame = frame
-                if 'image_processor' in processor_pipeline:
-                    processed_frame = processor_pipeline['image_processor'].process_frame(processed_frame, timestamp)
-                    logger.debug(f"[FRAME] image_processor done")
-                if 'date_processor' in processor_pipeline:
-                    data_result = processor_pipeline['date_processor'].process_frame(processed_frame, timestamp)
-                    if data_result is not None:
-                        processed_frame = data_result
-                    logger.debug(f"[FRAME] data_processor done, result={'kept' if data_result is not None else 'None (using fallback)'}")
-                if 'pose_processor' in processor_pipeline:
-                    result = processor_pipeline['pose_processor'].process_frame(processed_frame, timestamp)
-                    if result is not None:
-                        processed_frame = result['processed_frame']
-                        pose_data = result['data']
-                    logger.debug(f"[FRAME] pose_processor done, pose_data={'present' if pose_data else 'None'}")
+                # Offload blocking inference to thread pool so multiple streams
+                # can process in parallel (ONNX Runtime releases GIL during CUDA inference)
+                loop = asyncio.get_event_loop()
+                processed_frame, pose_data = await loop.run_in_executor(
+                    self._executor,
+                    self._run_pipeline_sync,
+                    processor_pipeline, frame, timestamp
+                )
 
                 _, buffer = cv2.imencode('.jpg', processed_frame, [cv2.IMWRITE_JPEG_QUALITY, 100])
 
@@ -210,6 +204,28 @@ class WebSocketHandler:
                 logger.error(f"[FLUSH] Error: {e}")
                 await self.sio.emit('error', {'message': f'Flush error: {str(e)}'}, room=sid)
     
+    def _run_pipeline_sync(self, processor_pipeline, frame, timestamp):
+        """Run the processor pipeline synchronously. Called from thread pool."""
+        pose_data = None
+        processed_frame = frame
+
+        if 'image_processor' in processor_pipeline:
+            processed_frame = processor_pipeline['image_processor'].process_frame(processed_frame, timestamp)
+            logger.debug("[FRAME] image_processor done")
+        if 'date_processor' in processor_pipeline:
+            data_result = processor_pipeline['date_processor'].process_frame(processed_frame, timestamp)
+            if data_result is not None:
+                processed_frame = data_result
+            logger.debug(f"[FRAME] data_processor done, result={'kept' if data_result is not None else 'None (using fallback)'}")
+        if 'pose_processor' in processor_pipeline:
+            result = processor_pipeline['pose_processor'].process_frame(processed_frame, timestamp)
+            if result is not None:
+                processed_frame = result['processed_frame']
+                pose_data = result['data']
+            logger.debug(f"[FRAME] pose_processor done, pose_data={'present' if pose_data else 'None'}")
+
+        return processed_frame, pose_data
+
     @staticmethod
     def _dump_types(obj, depth=0):
         """Recursively report non-native types for debugging JSON serialization."""
@@ -247,6 +263,7 @@ class WebSocketHandler:
     def cleanup_all(self):
         for processor_id in list(self.processors.keys()):
             self.cleanup_processor(processor_id)
+        self._executor.shutdown(wait=False)
     
     def get_stats(self) -> Dict[str, Any]:
         return {

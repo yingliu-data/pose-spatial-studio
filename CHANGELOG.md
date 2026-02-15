@@ -4,6 +4,13 @@ All notable changes to the Pose Spatial Studio project will be documented in thi
 
 The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.0.0/).
 
+## [1.1.3] - 15 February 2026
+
+### Performance
+- Concurrent multi-stream processing: offload inference to ThreadPoolExecutor so streams process in parallel instead of sequentially
+- CUDA GPU acceleration for RTMPose: add `onnxruntime-gpu` dependency and auto-detect GPU device at startup
+- Add RTMPose default config fields (openpose_skeleton, mode, backend, device) to config_template.json
+
 ## [1.1.2] - 14 February 2026
 
 ### Fixed

@@ -1,7 +1,10 @@
 from pathlib import Path
 import os
 import json
+import logging
 from utils.locate_path import get_project_root
+
+logger = logging.getLogger(__name__)
 
 HOST = os.getenv("POSE_STUDIO_HOST", "0.0.0.0")
 PORT = int(os.getenv("POSE_STUDIO_PORT", 49101))
@@ -24,19 +27,39 @@ CACHE_DIR = PROJECT_ROOT / ".cache"
 
 DEFAULT_CONFIG = json.load(open(BASE_DIR / "config_template.json", "r"))
 
+def detect_gpu_device() -> str:
+    """Detect available GPU device for ONNX Runtime inference."""
+    try:
+        import onnxruntime as ort
+        available_providers = ort.get_available_providers()
+        if 'CUDAExecutionProvider' in available_providers:
+            logger.info("GPU detected: CUDAExecutionProvider available")
+            return 'cuda'
+    except ImportError:
+        pass
+    logger.info("No GPU acceleration available, using CPU")
+    return 'cpu'
+
+def _resolve_auto_device(config: dict) -> dict:
+    """Resolve 'auto' device setting to actual device."""
+    if "pose_processor" in config:
+        if config["pose_processor"].get("device") == "auto":
+            config["pose_processor"]["device"] = detect_gpu_device()
+    return config
+
 def merge_configs(user_config: dict) -> dict:
     import copy
     merged = copy.deepcopy(DEFAULT_CONFIG)
-    
+
     if not user_config:
-        return _convert_model_paths(merged)
-    
+        return _resolve_auto_device(_convert_model_paths(merged))
+
     for processor in ["image_processor", "pose_processor", "data_processor"]:
         if processor in user_config:
             for key, value in user_config[processor].items():
                 merged[processor][key] = value
-    
-    return _convert_model_paths(merged)
+
+    return _resolve_auto_device(_convert_model_paths(merged))
 
 def _convert_model_paths(config: dict) -> dict:
     if "pose_processor" in config:

@@ -5,6 +5,7 @@ opencv-python
 mediapipe
 numpy
 rtmlib -i https://pypi.org/simple
+onnxruntime-gpu
 tqdm
 
 # CLIP for image retrieval

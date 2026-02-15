@@ -27,6 +27,10 @@
         "pose_landmarker_frame_height": 480,
         "object_detector_frame_width": 448,
         "object_detector_frame_height": 448,
-        "num_poses": 1
+        "num_poses": 1,
+        "openpose_skeleton": false,
+        "mode": "lightweight",
+        "backend": "onnxruntime",
+        "device": "auto"
     }
 }

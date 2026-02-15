@@ -14,10 +14,25 @@ logger = logging.getLogger(__name__)
 
 websocket_handler = None
 
+def _get_gpu_info() -> dict:
+    """Detect GPU availability for diagnostics."""
+    info = {"device": "cpu", "cuda_available": False, "providers": []}
+    try:
+        import onnxruntime as ort
+        info["providers"] = ort.get_available_providers()
+        if "CUDAExecutionProvider" in info["providers"]:
+            info["cuda_available"] = True
+            info["device"] = "cuda"
+    except ImportError:
+        info["onnxruntime"] = "not installed"
+    return info
+
 @asynccontextmanager
 async def lifespan(app: FastAPI):
+    gpu_info = _get_gpu_info()
     logger.info(f"Starting Pose Vision Studio v1.1")
     logger.info(f"Host: {config.HOST}:{config.PORT}")
+    logger.info(f"GPU: {gpu_info['device']} | CUDA: {gpu_info['cuda_available']} | Providers: {gpu_info['providers']}")
     yield
     logger.info("Shutting down server")
     if websocket_handler:
@@ -57,7 +72,9 @@ async def root():
 
 @app.get("/health")
 async def health_check():
-    return websocket_handler.get_stats()
+    stats = websocket_handler.get_stats()
+    stats["gpu"] = _get_gpu_info()
+    return stats
 
 @app.get("/info")
 async def info():

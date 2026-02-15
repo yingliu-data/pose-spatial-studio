@@ -17,7 +17,7 @@
         }
     },
     "pose_processor": {
-        "processor_type": "mediapipe",
+        "processor_type": "rtmpose",
         "pose_landmarker_model_name": "pose_landmarker_full.task",
         "object_detector_model_name": "efficientdet_lite2.tflite",
         "min_detection_confidence": 0.5,

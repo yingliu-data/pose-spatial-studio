@@ -87,6 +87,9 @@ jobs:
             echo "=== Waiting for startup ==="
             sleep 5
 
+            echo "=== GPU check ==="
+            docker exec $CONTAINER python3 -c "import onnxruntime as ort; p=ort.get_available_providers(); print('Providers:', p); print('GPU:', 'YES' if 'CUDAExecutionProvider' in p else 'NO')" || true
+
             echo "=== Health check ==="
             if curl -s http://localhost:49101/health > /dev/null; then
                 echo "✓ Backend is healthy!"

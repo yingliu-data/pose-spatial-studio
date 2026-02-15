@@ -11,7 +11,7 @@ interface UseWebSocketReturn {
   flushStream: (streamId: string) => void;
 }
 
-const RESULT_TIMEOUT_MS = 10000;
+const RESULT_TIMEOUT_MS = 3000;
 
 export function useWebSocket(): UseWebSocketReturn {
   const [socket, setSocket] = useState<Socket | null>(null);

@@ -21,6 +21,9 @@ class WebSocketHandler:
         self.sio = sio
         self.processors: Dict[str, Dict[str, BaseProcessor]] = {}
         self._executor = ThreadPoolExecutor(max_workers=4, thread_name_prefix="pose-worker")
+        # Per-stream latest frame buffer: only the newest frame is kept
+        self._latest_frames: Dict[str, Tuple] = {}  # processor_id -> (frame, timestamp, sid, stream_id)
+        self._active_streams: set = set()  # processor_ids currently being processed
         self.setup_handlers()
     
     def setup_handlers(self):
@@ -142,36 +145,14 @@ class WebSocketHandler:
                     await self.sio.emit('error', {'message': 'Invalid frame data'}, room=sid)
                     return
 
-                processor_pipeline = self.processors[processor_id]
+                # Store only the latest frame per stream, dropping any older pending frame
+                self._latest_frames[processor_id] = (frame, timestamp, sid, stream_id)
 
-                # Offload blocking inference to thread pool so multiple streams
-                # can process in parallel (ONNX Runtime releases GIL during CUDA inference)
-                loop = asyncio.get_event_loop()
-                processed_frame, pose_data = await loop.run_in_executor(
-                    self._executor,
-                    self._run_pipeline_sync,
-                    processor_pipeline, frame, timestamp
-                )
-
-                _, buffer = cv2.imencode('.jpg', processed_frame, [cv2.IMWRITE_JPEG_QUALITY, 100])
-
-                emit_payload = {
-                    'stream_id': stream_id,
-                    'frame': base64.b64encode(buffer).decode('utf-8'),
-                    'pose_data': pose_data,
-                    'timestamp_ms': timestamp
-                }
-
-                # Pre-flight JSON check: catch numpy types before socketio's internal serializer
-                try:
-                    json.dumps(emit_payload)
-                except TypeError as json_err:
-                    logger.error(f"[FRAME] JSON serialization would fail: {json_err}")
-                    logger.error(f"[FRAME] pose_data types: {self._dump_types(pose_data)}")
-                    emit_payload['pose_data'] = None
-
-                await self.sio.emit('pose_result', emit_payload, room=sid)
-                logger.debug(f"[FRAME] Emitted pose_result for {stream_id}")
+                # If this stream is already being processed, the newer frame will be
+                # picked up when the current processing finishes — no queue buildup
+                if processor_id not in self._active_streams:
+                    self._active_streams.add(processor_id)
+                    asyncio.ensure_future(self._process_latest_frame(processor_id))
 
             except Exception as e:
                 logger.error(f"Error processing frame: {e}", exc_info=True)
@@ -204,6 +185,48 @@ class WebSocketHandler:
                 logger.error(f"[FLUSH] Error: {e}")
                 await self.sio.emit('error', {'message': f'Flush error: {str(e)}'}, room=sid)
     
+    async def _process_latest_frame(self, processor_id: str):
+        """Process the latest frame for a stream, then check for newer ones."""
+        try:
+            while processor_id in self._latest_frames:
+                # Grab the latest frame and clear the buffer
+                frame, timestamp, sid, stream_id = self._latest_frames.pop(processor_id)
+
+                processor_pipeline = self.processors.get(processor_id)
+                if not processor_pipeline:
+                    break
+
+                loop = asyncio.get_event_loop()
+                processed_frame, pose_data = await loop.run_in_executor(
+                    self._executor,
+                    self._run_pipeline_sync,
+                    processor_pipeline, frame, timestamp
+                )
+
+                _, buffer = cv2.imencode('.jpg', processed_frame, [cv2.IMWRITE_JPEG_QUALITY, 100])
+
+                emit_payload = {
+                    'stream_id': stream_id,
+                    'frame': base64.b64encode(buffer).decode('utf-8'),
+                    'pose_data': pose_data,
+                    'timestamp_ms': timestamp
+                }
+
+                # Pre-flight JSON check: catch numpy types before socketio's internal serializer
+                try:
+                    json.dumps(emit_payload)
+                except TypeError as json_err:
+                    logger.error(f"[FRAME] JSON serialization would fail: {json_err}")
+                    logger.error(f"[FRAME] pose_data types: {self._dump_types(pose_data)}")
+                    emit_payload['pose_data'] = None
+
+                await self.sio.emit('pose_result', emit_payload, room=sid)
+                logger.debug(f"[FRAME] Emitted pose_result for {stream_id}")
+        except Exception as e:
+            logger.error(f"Error in _process_latest_frame: {e}", exc_info=True)
+        finally:
+            self._active_streams.discard(processor_id)
+
     def _run_pipeline_sync(self, processor_pipeline, frame, timestamp):
         """Run the processor pipeline synchronously. Called from thread pool."""
         pose_data = None
@@ -250,6 +273,8 @@ class WebSocketHandler:
             return None
     
     def cleanup_processor(self, processor_id: str):
+        self._latest_frames.pop(processor_id, None)
+        self._active_streams.discard(processor_id)
         if processor_id in self.processors:
             logger.debug(f"[CLEANUP] Cleaning up processor: {processor_id}")
             for processor in self.processors[processor_id]:

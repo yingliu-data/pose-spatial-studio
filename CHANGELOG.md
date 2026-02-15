@@ -4,6 +4,12 @@ All notable changes to the Pose Spatial Studio project will be documented in thi
 
 The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.0.0/).
 
+## [1.1.4] - 15 February 2026
+
+### Fixed
+- Multi-stream latency buildup: add frontend backpressure (wait for result before sending next frame) and backend frame dropping (only process latest frame per stream, discard stale queued frames)
+- Reduce stale result timeout from 10s to 3s to drop delayed frames more aggressively
+
 ## [1.1.3] - 15 February 2026
 
 ### Performance

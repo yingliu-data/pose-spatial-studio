@@ -32,6 +32,8 @@ export function CameraCapture({
   const streamServiceRef = useRef<StreamService | null>(null);
   const intervalRef = useRef<ReturnType<typeof setInterval> | null>(null);
   const isProcessingFrameRef = useRef<boolean>(false);
+  const waitingForResultRef = useRef<boolean>(false);
+  const waitingTimeoutRef = useRef<ReturnType<typeof setTimeout> | null>(null);
   const onVideoReadyRef = useRef(onVideoReady);
   const onProcessedImageReadyRef = useRef(onProcessedImageReady);
   
@@ -42,6 +44,17 @@ export function CameraCapture({
     onVideoReadyRef.current = onVideoReady;
     onProcessedImageReadyRef.current = onProcessedImageReady;
   }, [onVideoReady, onProcessedImageReady]);
+
+  // Release backpressure when a result arrives for this stream
+  useEffect(() => {
+    if (poseResult?.stream_id === streamId) {
+      waitingForResultRef.current = false;
+      if (waitingTimeoutRef.current) {
+        clearTimeout(waitingTimeoutRef.current);
+        waitingTimeoutRef.current = null;
+      }
+    }
+  }, [poseResult, streamId]);
 
   useEffect(() => {
     if (poseResult?.frame && poseResult.stream_id === streamId && processedCanvasRef.current) {
@@ -137,7 +150,12 @@ export function CameraCapture({
         clearInterval(intervalRef.current);
         intervalRef.current = null;
       }
+      if (waitingTimeoutRef.current) {
+        clearTimeout(waitingTimeoutRef.current);
+        waitingTimeoutRef.current = null;
+      }
       isProcessingFrameRef.current = false;
+      waitingForResultRef.current = false;
     };
   }, [socket, streamId, sourceType, deviceId, videoFile]);
 
@@ -148,17 +166,18 @@ export function CameraCapture({
     }
     
     const processFrame = () => {
-      if (isProcessingFrameRef.current) return;
-      
+      // Skip if encoding in progress OR waiting for backend to return a result
+      if (isProcessingFrameRef.current || waitingForResultRef.current) return;
+
       if (videoRef.current && canvasRef.current && streamServiceRef.current) {
         const ctx = canvasRef.current.getContext('2d');
         if (ctx && videoRef.current.readyState === videoRef.current.HAVE_ENOUGH_DATA) {
-          if (canvasRef.current.width !== videoRef.current.videoWidth || 
+          if (canvasRef.current.width !== videoRef.current.videoWidth ||
               canvasRef.current.height !== videoRef.current.videoHeight) {
             canvasRef.current.width = videoRef.current.videoWidth;
             canvasRef.current.height = videoRef.current.videoHeight;
           }
-          
+
           ctx.drawImage(videoRef.current, 0, 0);
           isProcessingFrameRef.current = true;
           canvasRef.current.toBlob((blob) => {
@@ -167,6 +186,13 @@ export function CameraCapture({
               reader.onloadend = () => {
                 streamServiceRef.current?.sendFrame(reader.result as string, Date.now());
                 isProcessingFrameRef.current = false;
+                // Wait for backend result before sending the next frame
+                waitingForResultRef.current = true;
+                // Safety timeout: release if no result arrives within 2s
+                waitingTimeoutRef.current = setTimeout(() => {
+                  waitingForResultRef.current = false;
+                  waitingTimeoutRef.current = null;
+                }, 2000);
               };
               reader.readAsDataURL(blob);
             } else {

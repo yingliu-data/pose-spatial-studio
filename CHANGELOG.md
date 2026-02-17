@@ -4,6 +4,12 @@ All notable changes to the Pose Spatial Studio project will be documented in thi
 
 The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.0.0/).
 
+## [1.1.5] - 17 February 2026
+
+### Fixed
+- RTMPose3D z-depth decoding: rtmlib decodes z using image height (384) instead of codec z input size (288), causing 33% depth compression and systematic offset — re-decode from raw simcc pixel values with correct divisor
+- 3D world landmark x,y scale: replace fixed model-crop-space scale with image-space 2D keypoints and approximate perspective unprojection for consistent x,y,z proportions
+
 ## [1.1.4] - 15 February 2026
 
 ### Fixed

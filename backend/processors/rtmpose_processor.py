@@ -37,11 +37,14 @@ COCO133_TO_OUTPUT_JOINTS = {
 }
 
 # RTMPose3D model constants for 3D coordinate normalization
+# Official codec: input_size=(288, 384, 288), z_range=2.1744869
 # After simcc postprocess, x,y are in model-input pixel space: x in [0,288), y in [0,384)
-# z is already converted to meters via (z_simcc / (H/2) - 1) * z_range
-_MODEL_HALF_W = 144.0   # model_input_size[0] / 2 = 288 / 2
-_MODEL_HALF_H = 192.0   # model_input_size[1] / 2 = 384 / 2
-_Z_RANGE = 2.1744869
+# rtmlib bug: z decoded using image height (384) instead of z input size (288).
+# We re-decode z from raw simcc pixel values using the correct z input size.
+_MODEL_HALF_W = 144.0     # model_input_size[0] / 2 = 288 / 2
+_MODEL_HALF_H = 192.0     # model_input_size[1] / 2 = 384 / 2
+_Z_RANGE = 2.1744869      # dataset statistic: max root-relative depth in meters
+_Z_INPUT_HALF = 144.0     # codec input_size[2] / 2 = 288 / 2 (z dimension)
 _SCALE = _Z_RANGE / _MODEL_HALF_H  # meters per pixel in model space
 
 
@@ -71,7 +74,14 @@ class RTMPoseProcessor(BaseProcessor):
             return None
 
         frame = np.ascontiguousarray(frame)
-        keypoints_3d, scores, _, keypoints_2d = self.wholebody(frame)
+        keypoints_3d, scores, keypoints_simcc, keypoints_2d = self.wholebody(frame)
+
+        # Fix rtmlib z-depth bug: rtmlib decodes z using image height (384/2=192)
+        # but the model codec uses z_input_size (288/2=144). Re-decode from raw
+        # simcc pixel values to get correct root-relative depth in meters.
+        if keypoints_3d is not None and len(keypoints_3d) > 0:
+            z_pixel = keypoints_simcc[..., 2]
+            keypoints_3d[..., 2] = (z_pixel / _Z_INPUT_HALF - 1.0) * _Z_RANGE
 
         annotated_frame = draw_skeleton(frame, keypoints_2d, scores, kpt_thr=0.5)
 
@@ -146,9 +156,9 @@ class RTMPoseProcessor(BaseProcessor):
                                 scores: np.ndarray) -> List[Dict]:
         """Build 3D world landmarks from RTMPose3D keypoints.
 
-        RTMPose3D outputs x,y in model pixel space [0,288)x[0,384) and z
-        already in meters. We center and scale x,y to meters using the same
-        scale factor as the model's z normalization.
+        After z-correction in process_frame, x,y are in model pixel space
+        [0,288)x[0,384) and z is in root-relative meters. We center and
+        scale x,y to meters using the z normalization scale factor.
         """
         result = []
         for person_kpts, person_scores in zip(keypoints_3d, scores):

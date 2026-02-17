@@ -29,12 +29,20 @@ CACHE_DIR = PROJECT_ROOT / ".cache"
 DEFAULT_CONFIG = json.load(open(BASE_DIR / "config_template.json", "r"))
 
 def detect_gpu_device() -> str:
-    """Detect available GPU device for ONNX Runtime inference."""
+    """Detect available GPU device for inference acceleration."""
+    # Check ONNX Runtime CUDA provider (used by RTMPose)
     try:
         import onnxruntime as ort
-        available_providers = ort.get_available_providers()
-        if 'CUDAExecutionProvider' in available_providers:
-            logger.info("GPU detected: CUDAExecutionProvider available")
+        if 'CUDAExecutionProvider' in ort.get_available_providers():
+            logger.info("GPU detected: ONNX Runtime CUDAExecutionProvider")
+            return 'cuda'
+    except ImportError:
+        pass
+    # Check PyTorch CUDA (also indicates a usable NVIDIA GPU)
+    try:
+        import torch
+        if torch.cuda.is_available():
+            logger.info(f"GPU detected: PyTorch CUDA ({torch.cuda.get_device_name(0)})")
             return 'cuda'
     except ImportError:
         pass

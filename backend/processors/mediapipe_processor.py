@@ -85,6 +85,7 @@ class MediaPipeProcessor(BaseProcessor):
         self.num_poses = pose_processor_config['num_poses']
         self.object_detector_frame_width = pose_processor_config['object_detector_frame_width']
         self.object_detector_frame_height = pose_processor_config['object_detector_frame_height']
+        self.device = pose_processor_config.get('device', 'cpu')
         self.landmarker = None
         self.object_detector = None
         self.latest_pose_result = None
@@ -100,33 +101,59 @@ class MediaPipeProcessor(BaseProcessor):
         with self.result_lock:
             self.latest_object_result = result
     
+    def _get_delegate(self) -> 'mp.tasks.BaseOptions.Delegate':
+        """Return GPU delegate if device is cuda, otherwise CPU."""
+        if self.device == 'cuda':
+            logger.info("MediaPipe: using GPU delegate")
+            return mp.tasks.BaseOptions.Delegate.GPU
+        logger.info("MediaPipe: using CPU delegate")
+        return mp.tasks.BaseOptions.Delegate.CPU
+
+    def _try_initialize_with_delegate(self, delegate) -> bool:
+        """Attempt to create MediaPipe tasks with the given delegate."""
+        VisionRunningMode = mp.tasks.vision.RunningMode.LIVE_STREAM
+
+        if not os.path.exists(self.object_detector_model_path):
+            model_url = MODEL_LINK.get(os.path.basename(self.object_detector_model_path))
+            if model_url is None:
+                raise ValueError(f"No download URL found for model {self.object_detector_model_path}")
+            subprocess.run(["wget", "-O", self.object_detector_model_path, model_url], check=True)
+
+        object_detector_options = mp.tasks.vision.ObjectDetectorOptions(
+            base_options=mp.tasks.BaseOptions(
+                model_asset_path=self.object_detector_model_path,
+                delegate=delegate),
+            running_mode=VisionRunningMode,
+            max_results=5,
+            result_callback=self._detection_result_callback)
+        self.object_detector = mp.tasks.vision.ObjectDetector.create_from_options(object_detector_options)
+
+        landmarker_options = mp.tasks.vision.PoseLandmarkerOptions(
+            base_options=mp.tasks.BaseOptions(
+                model_asset_path=self.pose_landmarker_model_path,
+                delegate=delegate),
+            running_mode=VisionRunningMode,
+            num_poses=self.num_poses,
+            min_pose_detection_confidence=self.min_detection_confidence,
+            min_pose_presence_confidence=self.min_presence_confidence,
+            min_tracking_confidence=self.min_tracking_confidence,
+            output_segmentation_masks=False,
+            result_callback=self._pose_result_callback
+        )
+        self.landmarker = mp.tasks.vision.PoseLandmarker.create_from_options(landmarker_options)
+        return True
+
     def initialize(self) -> bool:
         try:
-            VisionRunningMode = mp.tasks.vision.RunningMode.LIVE_STREAM
-            if not os.path.exists(self.object_detector_model_path):
-                model_url = MODEL_LINK.get(os.path.basename(self.object_detector_model_path))
-                if model_url is None:
-                    raise ValueError(f"No download URL found for model {self.object_detector_model_path}")
-                subprocess.run(["wget", "-O", self.object_detector_model_path, model_url], check=True)
-                
-            object_detector_options = mp.tasks.vision.ObjectDetectorOptions(
-                base_options=mp.tasks.BaseOptions(model_asset_path=self.object_detector_model_path),
-                running_mode=VisionRunningMode,
-                max_results=5,
-                result_callback=self._detection_result_callback)
-            self.object_detector = mp.tasks.vision.ObjectDetector.create_from_options(object_detector_options)
-
-            landmarker_options = mp.tasks.vision.PoseLandmarkerOptions(
-                base_options=mp.tasks.BaseOptions(model_asset_path=self.pose_landmarker_model_path),
-                running_mode=VisionRunningMode,
-                num_poses=self.num_poses,
-                min_pose_detection_confidence=self.min_detection_confidence,
-                min_pose_presence_confidence=self.min_presence_confidence,
-                min_tracking_confidence=self.min_tracking_confidence,
-                output_segmentation_masks=False,
-                result_callback=self._pose_result_callback
-            )
-            self.landmarker = mp.tasks.vision.PoseLandmarker.create_from_options(landmarker_options)
+            delegate = self._get_delegate()
+            try:
+                self._try_initialize_with_delegate(delegate)
+            except Exception as gpu_err:
+                if delegate == mp.tasks.BaseOptions.Delegate.GPU:
+                    logger.warning(f"MediaPipe GPU delegate failed ({gpu_err}), falling back to CPU")
+                    self._try_initialize_with_delegate(mp.tasks.BaseOptions.Delegate.CPU)
+                else:
+                    raise
 
             self._is_initialized = True
             logger.info(f"MediaPipe processor {self.processor_id} initialized")

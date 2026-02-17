@@ -38,14 +38,13 @@ COCO133_TO_OUTPUT_JOINTS = {
 
 # RTMPose3D model constants for 3D coordinate normalization
 # Official codec: input_size=(288, 384, 288), z_range=2.1744869
-# After simcc postprocess, x,y are in model-input pixel space: x in [0,288), y in [0,384)
 # rtmlib bug: z decoded using image height (384) instead of z input size (288).
 # We re-decode z from raw simcc pixel values using the correct z input size.
-_MODEL_HALF_W = 144.0     # model_input_size[0] / 2 = 288 / 2
-_MODEL_HALF_H = 192.0     # model_input_size[1] / 2 = 384 / 2
+# For x,y we use image-space 2D keypoints (inverse-affine-transformed by rtmlib)
+# with approximate perspective unprojection to get consistent metric coordinates.
 _Z_RANGE = 2.1744869      # dataset statistic: max root-relative depth in meters
 _Z_INPUT_HALF = 144.0     # codec input_size[2] / 2 = 288 / 2 (z dimension)
-_SCALE = _Z_RANGE / _MODEL_HALF_H  # meters per pixel in model space
+_TORSO_LEG_HEIGHT = 1.35  # approximate shoulder-to-ankle height in meters
 
 
 class RTMPoseProcessor(BaseProcessor):
@@ -101,7 +100,8 @@ class RTMPoseProcessor(BaseProcessor):
 
         h, w = frame.shape[:2]
         landmarks = self._build_2d_landmarks(keypoints_2d, scores, w, h)
-        world_landmarks = self._build_world_landmarks(keypoints_3d, scores)
+        world_landmarks = self._build_world_landmarks(
+            keypoints_3d, keypoints_2d, scores, w, h)
 
         fk_data = self._fk_processing(world_landmarks)
 
@@ -153,18 +153,40 @@ class RTMPoseProcessor(BaseProcessor):
         return result
 
     def _build_world_landmarks(self, keypoints_3d: np.ndarray,
-                                scores: np.ndarray) -> List[Dict]:
-        """Build 3D world landmarks from RTMPose3D keypoints.
+                                keypoints_2d: np.ndarray,
+                                scores: np.ndarray,
+                                w: int, h: int) -> List[Dict]:
+        """Build 3D world landmarks combining 2D image-space x,y with 3D z.
 
-        After z-correction in process_frame, x,y are in model pixel space
-        [0,288)x[0,384) and z is in root-relative meters. We center and
-        scale x,y to meters using the z normalization scale factor.
+        Uses keypoints_2d (inverse-affine-transformed to image space by rtmlib)
+        for x,y, then applies approximate perspective unprojection to convert
+        to meters consistent with the z-axis. z comes from keypoints_3d
+        (already corrected for rtmlib's codec mismatch).
         """
+        f_est = float(max(w, h))  # estimated focal length (~53° VFOV)
+
         result = []
-        for person_kpts, person_scores in zip(keypoints_3d, scores):
+        for person_3d, person_2d, person_scores in zip(
+                keypoints_3d, keypoints_2d, scores):
+            # Estimate root depth from visible body extent (indices 5-16)
+            visible_ys = [person_2d[i][1] for i in range(5, 17)
+                          if i < len(person_2d) and person_scores[i] > 0.3]
+            if len(visible_ys) >= 2:
+                body_height_px = max(visible_ys) - min(visible_ys)
+                z_root = _TORSO_LEG_HEIGHT * f_est / max(body_height_px, 50.0)
+            else:
+                z_root = 3.0
+
+            # Person center in image space (average of hip keypoints)
+            hip_indices = [11, 12]
+            valid_hips = [i for i in hip_indices if i < len(person_2d)]
+            cx = float(np.mean([person_2d[i][0] for i in valid_hips]))
+            cy = float(np.mean([person_2d[i][1] for i in valid_hips]))
+            xy_scale = z_root / f_est  # meters per image pixel
+
             landmark_dict = {}
             for joint_name, indices in COCO133_TO_OUTPUT_JOINTS.items():
-                valid = [i for i in indices if i < len(person_kpts)]
+                valid = [i for i in indices if i < len(person_2d)]
                 if not valid:
                     landmark_dict[joint_name] = {
                         "x": 0.0, "y": 0.0, "z": 0.0,
@@ -172,9 +194,9 @@ class RTMPoseProcessor(BaseProcessor):
                     }
                     continue
                 landmark_dict[joint_name] = {
-                    "x": float(np.mean([(person_kpts[i][0] - _MODEL_HALF_W) * _SCALE for i in valid])),
-                    "y": float(np.mean([(person_kpts[i][1] - _MODEL_HALF_H) * _SCALE for i in valid])),
-                    "z": float(np.mean([person_kpts[i][2] for i in valid])),
+                    "x": float(np.mean([(person_2d[i][0] - cx) * xy_scale for i in valid])),
+                    "y": float(np.mean([(person_2d[i][1] - cy) * xy_scale for i in valid])),
+                    "z": float(np.mean([person_3d[i][2] for i in valid])),
                     "visibility": float(np.mean([person_scores[i] for i in valid])),
                     "presence": float(np.mean([person_scores[i] for i in valid])),
                 }

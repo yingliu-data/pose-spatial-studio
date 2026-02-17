@@ -14,6 +14,7 @@ CORS_ORIGINS = [
     "http://localhost:8585",
     "http://127.0.0.1:8585",
     "https://robot.yingliu.site",
+    "https://staging.robot.yingliu.site",
 ]
 
 SOCKETIO_CORS_ORIGINS = "*"

@@ -112,7 +112,7 @@ pose-spatial-studio/
 
 **App.tsx** - Root component, manages streams and WebSocket connection
 
-**Controls.tsx** - Stream management: add/delete streams, camera selection, config upload
+**Controls.tsx** - Stream management: add/delete streams, camera selection, model selection, config upload
 
 **CameraCapture.tsx** - Camera access, 10 FPS capture, JPEG encoding, receives processed frames
 
@@ -199,15 +199,17 @@ VM1 (Frontend Edge)          VM2 (GPU Backend)
 | `initialize_stream` | `{ stream_id, processor_type, processor_config, source_type }` |
 | `process_frame` | `{ stream_id, frame (base64), timestamp_ms }` |
 | `cleanup_processor` | `{ stream_id }` |
+| `switch_model` | `{ stream_id, processor_type }` |
 
 ### Server → Client
 
 | Event | Payload |
 |-------|---------|
 | `connection_status` | `{ status, sid }` |
-| `stream_initialized` | `{ stream_id, status, message }` |
+| `stream_initialized` | `{ stream_id, status, message, processor_type }` |
 | `stream_error` | `{ stream_id, message }` |
 | `pose_result` | `{ stream_id, frame (base64), pose_data, timestamp_ms }` |
+| `model_switched` | `{ stream_id, processor_type, message }` |
 | `error` | `{ message }` |
 
 ## Configuration

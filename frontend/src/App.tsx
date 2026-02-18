@@ -1,8 +1,16 @@
-import { useState } from 'react';
+import { useState, useCallback } from 'react';
 import { useWebSocket } from '@/hooks/useWebSocket';
 import { Controls } from '@/components/Controls';
 import { MultiViewGrid } from '@/components/MultiViewGrid';
+import { StreamInitService } from '@/services/streamInitService';
 import './App.css';
+
+export const AVAILABLE_MODELS = [
+  { value: 'mediapipe', label: 'MediaPipe' },
+  { value: 'rtmpose', label: 'RTMPose' },
+] as const;
+
+export type ModelType = typeof AVAILABLE_MODELS[number]['value'];
 
 interface Stream {
   streamId: string;
@@ -11,6 +19,7 @@ interface Stream {
   deviceLabel?: string;
   videoFile?: File;
   processorConfig?: Record<string, any>;
+  modelType: ModelType;
   active: boolean;
   createdAt: number;
 }
@@ -20,20 +29,22 @@ function App() {
   const [streams, setStreams] = useState<Stream[]>([]);
   const [selectedStream, setSelectedStream] = useState<string | null>(null);
   const [sidebarCollapsed, setSidebarCollapsed] = useState(false);
+  const [switchingModels, setSwitchingModels] = useState<Map<string, string>>(new Map());
 
   const addStream = (
-    streamId: string, 
-    sourceType: 'camera' | 'video', 
-    deviceId?: string, 
+    streamId: string,
+    sourceType: 'camera' | 'video',
+    deviceId?: string,
     deviceLabel?: string,
-    videoFile?: File, 
-    processorConfig?: Record<string, any>
+    videoFile?: File,
+    processorConfig?: Record<string, any>,
+    modelType?: ModelType
   ): boolean => {
     if (streams.find(s => s.streamId === streamId)) {
       alert(`Stream "${streamId}" already exists`);
       return false;
     }
-    setStreams(prev => [...prev, { streamId, sourceType, deviceId, deviceLabel, videoFile, processorConfig, active: true, createdAt: Date.now() }]);
+    setStreams(prev => [...prev, { streamId, sourceType, deviceId, deviceLabel, videoFile, processorConfig, modelType: modelType || 'mediapipe', active: true, createdAt: Date.now() }]);
     return true;
   };
 
@@ -42,6 +53,37 @@ function App() {
     clearPoseResult(streamId);
     if (selectedStream === streamId) setSelectedStream(null);
   };
+
+  const handleSwitchModel = useCallback(async (streamId: string, newModel: ModelType) => {
+    if (!socket) return;
+
+    setSwitchingModels(prev => new Map(prev).set(streamId, `Switching to ${newModel}...`));
+
+    try {
+      const result = await StreamInitService.switchModel(
+        socket,
+        streamId,
+        newModel,
+        (message) => setSwitchingModels(prev => new Map(prev).set(streamId, message))
+      );
+
+      if (result.success) {
+        setStreams(prev => prev.map(s =>
+          s.streamId === streamId ? { ...s, modelType: newModel } : s
+        ));
+      } else {
+        console.error(`[App] Model switch failed: ${result.message}`);
+      }
+    } catch (err: any) {
+      console.error(`[App] Model switch error:`, err);
+    } finally {
+      setSwitchingModels(prev => {
+        const next = new Map(prev);
+        next.delete(streamId);
+        return next;
+      });
+    }
+  }, [socket]);
 
   return (
     <div className="app">
@@ -92,6 +134,8 @@ function App() {
             poseResults={poseResults}
             selectedStream={selectedStream}
             onFlushStream={flushStream}
+            onSwitchModel={handleSwitchModel}
+            switchingModels={switchingModels}
           />
         </main>
       </div>

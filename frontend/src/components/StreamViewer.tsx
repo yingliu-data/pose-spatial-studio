@@ -3,6 +3,7 @@ import { Socket } from 'socket.io-client';
 import { CameraCapture } from './CameraCapture';
 import { Skeleton3DViewer, type RendererType } from './Skeleton3DViewer';
 import { PoseResult } from '@/types/pose';
+import { AVAILABLE_MODELS, type ModelType } from '@/App';
 
 interface Stream {
   streamId: string;
@@ -11,6 +12,7 @@ interface Stream {
   deviceLabel?: string;
   videoFile?: File;
   processorConfig?: Record<string, any>;
+  modelType: ModelType;
   active: boolean;
 }
 
@@ -19,6 +21,8 @@ interface StreamViewerProps {
   stream: Stream;
   poseResult: PoseResult | null;
   onVideoElementReady?: (element: HTMLVideoElement | null) => void;
+  onSwitchModel: (newModel: ModelType) => void;
+  switchingMessage?: string;
 }
 
 const overlayStyle = {
@@ -36,7 +40,7 @@ const overlayStyle = {
   fontWeight: 500,
 };
 
-export function StreamViewer({ socket, stream, poseResult, onVideoElementReady }: StreamViewerProps) {
+export function StreamViewer({ socket, stream, poseResult, onVideoElementReady, onSwitchModel, switchingMessage }: StreamViewerProps) {
   const [videoElement, setVideoElement] = useState<HTMLVideoElement | null>(null);
   const [processedCanvas, setProcessedCanvas] = useState<HTMLCanvasElement | null>(null);
   const [rendererType, setRendererType] = useState<RendererType>('avatar');
@@ -111,6 +115,39 @@ export function StreamViewer({ socket, stream, poseResult, onVideoElementReady }
         <span style={{ fontSize: '13px' }}>{rendererType === 'avatar' ? '🧍' : '🦴'}</span>
         <span>{rendererType === 'avatar' ? 'Avatar' : 'Skeleton'}</span>
       </button>
+      {/* Model selector dropdown */}
+      <div style={{ ...overlayStyle, bottom: 14, left: 14, pointerEvents: 'auto', display: 'flex', alignItems: 'center', gap: '8px' }}>
+        <span style={{ fontSize: '10px', color: 'rgba(255, 255, 255, 0.4)', textTransform: 'uppercase', letterSpacing: '0.5px' }}>Model</span>
+        <select
+          value={stream.modelType}
+          onChange={(e) => onSwitchModel(e.target.value as ModelType)}
+          disabled={!!switchingMessage}
+          style={{
+            background: 'rgba(255, 255, 255, 0.06)',
+            border: '1px solid rgba(255, 255, 255, 0.15)',
+            borderRadius: '6px',
+            color: '#fff',
+            fontSize: '11px',
+            fontWeight: 600,
+            padding: '3px 8px',
+            cursor: switchingMessage ? 'wait' : 'pointer',
+            outline: 'none',
+            fontFamily: 'inherit',
+            opacity: switchingMessage ? 0.5 : 1,
+          }}
+        >
+          {AVAILABLE_MODELS.map((model) => (
+            <option key={model.value} value={model.value} style={{ background: '#1c1c1e' }}>
+              {model.label}
+            </option>
+          ))}
+        </select>
+        {switchingMessage && (
+          <span style={{ fontSize: '10px', color: '#ff9f0a', animation: 'pulse 1.5s ease-in-out infinite' }}>
+            {switchingMessage}
+          </span>
+        )}
+      </div>
       <div style={{ ...overlayStyle, bottom: 14, right: 14 }}>
         <div style={{ display: 'flex', alignItems: 'center', gap: '6px' }}>
           <span style={{ display: 'inline-block', width: '6px', height: '6px', borderRadius: '50%', background: hasData ? '#30d158' : '#ff9f0a', boxShadow: hasData ? '0 0 10px rgba(48, 209, 88, 0.5)' : '0 0 10px rgba(255, 159, 10, 0.5)', animation: 'pulse 2s ease-in-out infinite' }} />

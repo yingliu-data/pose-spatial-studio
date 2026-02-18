@@ -2,6 +2,7 @@ import { useState } from 'react';
 import { useCameraDevices } from '@/hooks/useCameraDevices';
 import { Socket } from 'socket.io-client';
 import { StreamInitService } from '@/services/streamInitService';
+import { AVAILABLE_MODELS, type ModelType } from '@/App';
 
 interface Stream {
   streamId: string;
@@ -10,6 +11,7 @@ interface Stream {
   deviceLabel?: string;
   videoFile?: File;
   processorConfig?: Record<string, any>;
+  modelType: ModelType;
   active: boolean;
   createdAt: number;
 }
@@ -18,7 +20,7 @@ interface ControlsProps {
   streams: Stream[];
   selectedStream: string | null;
   onStreamSelect: (streamId: string | null) => void;
-  onAddStream: (streamId: string, sourceType: 'camera' | 'video', deviceId?: string, deviceLabel?: string, videoFile?: File, processorConfig?: Record<string, any>) => boolean;
+  onAddStream: (streamId: string, sourceType: 'camera' | 'video', deviceId?: string, deviceLabel?: string, videoFile?: File, processorConfig?: Record<string, any>, modelType?: ModelType) => boolean;
   onRemoveStream: (streamId: string) => void;
   connected: boolean;
   socket: Socket | null;
@@ -37,6 +39,7 @@ export function Controls({
   const [formData, setFormData] = useState({
     streamId: '',
     sourceType: 'camera' as 'camera' | 'video',
+    modelType: 'mediapipe' as ModelType,
     deviceId: '',
     videoFile: null as File | null,
     configFile: null as File | null,
@@ -86,11 +89,20 @@ export function Controls({
     setLoadingMessage('Initializing...');
 
     try {
+      // Merge model type into processor config
+      const config = {
+        ...formData.processorConfig,
+        pose_processor: {
+          ...(formData.processorConfig.pose_processor || {}),
+          processor_type: formData.modelType,
+        }
+      };
+
       // Initialize stream on backend first
       const result = await StreamInitService.initializeStream(
         socket,
         formData.streamId,
-        formData.processorConfig,
+        config,
         (message: string) => {
           setLoadingMessage(message);
         },
@@ -111,20 +123,22 @@ export function Controls({
         : formData.videoFile?.name;
       
       if (onAddStream(
-        formData.streamId, 
+        formData.streamId,
         formData.sourceType,
-        formData.deviceId, 
+        formData.deviceId,
         sourceLabel,
         formData.videoFile || undefined,
-        formData.processorConfig
+        config,
+        formData.modelType
       )) {
-        setFormData({ 
-          streamId: '', 
+        setFormData({
+          streamId: '',
           sourceType: 'camera',
-          deviceId: '', 
+          modelType: 'mediapipe',
+          deviceId: '',
           videoFile: null,
           configFile: null,
-          processorConfig: {} 
+          processorConfig: {}
         });
         setShowAddForm(false);
       }
@@ -183,6 +197,21 @@ export function Controls({
               <option value="video">Video File</option>
             </select>
             <small>Camera for live feed or video file for playback</small>
+          </div>
+
+          <div className="form-group">
+            <label>Pose Model</label>
+            <select
+              value={formData.modelType}
+              onChange={(e) => setFormData({ ...formData, modelType: e.target.value as ModelType })}
+            >
+              {AVAILABLE_MODELS.map((model) => (
+                <option key={model.value} value={model.value}>
+                  {model.label}
+                </option>
+              ))}
+            </select>
+            <small>Pose estimation model (can be changed during stream)</small>
           </div>
 
           {formData.sourceType === 'camera' ? (

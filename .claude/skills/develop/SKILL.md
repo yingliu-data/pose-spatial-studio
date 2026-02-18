@@ -17,7 +17,7 @@ Mark each task as `in_progress` when starting work on it, and `completed` immedi
 1. **Understand** -- Analyze requirements and define acceptance criteria
 2. **Branch** -- Create a properly named branch from the correct base
 3. **Implement** -- Make changes following code conventions and lint standards
-4. **Validate** -- Start dev environment and test the implementation
+4. **Validate** -- Run automated tests and manual checks
 5. **Document** -- Update CHANGELOG.md, PROJECT_STRUCTURE.md, README.md as needed
 6. **Review** -- Optionally run a developer review via `/code-review`
 7. **Commit** -- Stage files and commit with conventional message format
@@ -59,10 +59,14 @@ Document the following:
 
 ### Create the branch
 
+For new features targeting production:
 ```bash
-git checkout main
+git checkout staging
+git pull origin staging
 git checkout -b type/brief-description
 ```
+
+**Git flow:** `feature branch` → PR to `staging` → auto-deploy & test → PR to `main` → production
 
 ### Branch naming format: `type/brief-description`
 
@@ -97,74 +101,123 @@ Follow these guidelines during implementation:
 6. **Lint check**: Run linters and code quality tools to ensure code meets project standards
 
 ### Frontend lint
+
 ```bash
-cd frontend
-npx eslint src/ --ext .ts,.tsx
-npx tsc --noEmit
+cd frontend && npx tsc --noEmit
 ```
 
 ### Backend lint
+
+Compile-check all modified Python files:
 ```bash
-cd backend
-python -m py_compile app.py
+cd backend && python -m py_compile app.py
+# Also check any modified processor/util files:
+# python -m py_compile processors/<file>.py
+# python -m py_compile utils/<file>.py
 ```
 
 ---
 
 ## Step 4: Validate
 
-### Start the development environment
+### 4A: Automated testing (preferred)
 
-1. **Start the backend server:**
+Run Playwright E2E tests from the `tests/` directory. Playwright auto-starts both backend (port 49101) and frontend (port 8585) if they aren't already running.
+
+```bash
+cd tests && npm test
+```
+
+**Other test commands:**
+```bash
+npm run test:headed    # Run with visible browser
+npm run test:debug     # Debug mode with breakpoints
+npm run test:ui        # Interactive Playwright UI
+npm run test:report    # View HTML report after a run
+```
+
+Test specs live in `tests/specs/`. When adding new features, consider adding or updating specs.
+
+### 4B: Manual testing
+
+If automated tests are insufficient or you need to test visually:
+
+1. **Start the dev environment** (if not already running):
+   - Backend: `cd backend && ./run_server.sh` (serves on `http://localhost:49101`)
+   - Frontend: `cd frontend && ./run_ui.sh` (serves on `http://localhost:8585`)
+   - Verify the frontend connects to the **local** backend (not production)
+
+2. **Test with video file** (no camera needed):
+   - Open `http://localhost:8585`
+   - Enter a stream name (e.g. `test`)
+   - Select the **Video** input option
+   - Upload the test video at `tests/test.mp4`
+   - Start the stream and verify pose detection + avatar rendering
+
+3. **Test with live camera** (when relevant):
+   - Open `http://localhost:8585`
+   - Enter a stream name (e.g. `test`)
+   - Select a camera device
+   - Verify pose landmarks overlay and 3D skeleton/avatar respond
+
+### 4C: Staging environment testing
+
+Use the staging environment to validate changes before production deployment.
+
+**Staging infrastructure:**
+- **Backend container**: `pose-spatial-studio-backend-staging` on VM2 port `49102`
+- **Staging URL**: `https://pose-backend-staging.yingliu.site`
+- **CI/CD**: `deploy_backend_staging.yml` triggers on push to `staging` branch
+- **GitHub secret**: `VITE_STAGING_BACKEND_URL` = `https://pose-backend-staging.yingliu.site`
+
+**Staging test workflow:**
+
+1. Commit changes and create PR to `staging` branch
+2. Merge PR — this triggers automatic deployment to the staging container
+3. Wait for the `Deploy backend (staging)` GitHub Actions workflow to pass
+4. Run frontend locally connected to staging backend:
    ```bash
-   cd backend
-   ./run_server.sh
+   cd frontend && VITE_BACKEND_URL=https://pose-backend-staging.yingliu.site npm run dev
    ```
-
-2. **Start the frontend:**
+5. Open `http://localhost:8585`
+6. Enter a stream name, select **Video**, upload `tests/test.mp4`
+7. Click **Create & Start Stream**, press **Play**
+8. Observe logs in frontend console and staging backend:
    ```bash
-   cd frontend
-   ./run_ui.sh
+   ssh -o ProxyCommand="cloudflared access ssh --hostname %h" root@pose-backend-ssh.yingliu.site \
+     "docker exec pose-spatial-studio-backend-staging tail -30 /root/backend/logs/app.log"
    ```
+9. Take screenshot to verify pose detection works
+10. If test passes → create PR from `staging` to `main` to trigger production deployment
 
-3. **Verify configuration:** Ensure the frontend is connecting to the local backend (not the production remote server)
+**Automated staging test:**
+```bash
+cd frontend && VITE_BACKEND_URL=https://pose-backend-staging.yingliu.site npm run dev &
+cd tests && npx playwright test specs/staging-video-test.spec.ts --config=playwright.staging.config.ts --project=chromium
+```
 
-### Test the implementation
+**Staging health check:**
+```bash
+curl https://pose-backend-staging.yingliu.site/health
+```
 
-You can test either **manually** or using **automated Playwright testing**.
 
-#### Option A: Automated Testing with Playwright (Recommended)
+### 4D: Remote GPU validation
 
-Use Playwright for automated UI testing. See `tests/README.md` for full setup and usage.
+When testing GPU-dependent features (MediaPipe GPU delegate, ONNX CUDA):
 
-1. **Run tests from the `tests/` directory:**
-   ```bash
-   cd tests
-   npm test
-   ```
+```bash
+# Production backend
+ssh -o ProxyCommand="cloudflared access ssh --hostname %h" root@pose-backend-ssh.yingliu.site
+docker exec pose-spatial-studio-backend curl -s http://localhost:49101/health
+docker exec pose-spatial-studio-backend tail -50 /root/backend/logs/app.log
 
-2. **Or use Playwright MCP tools in Claude Code:**
-   ```
-   Use ToolSearch with query: "playwright"
-   ```
-   - Navigate to `http://localhost:8585`
-   - Fill in camera name as `test`
-   - Select laptop camera option
-   - Capture screenshots and validate pose detection
+# Staging backend
+docker exec pose-spatial-studio-backend-staging curl -s http://localhost:49101/health
+docker exec pose-spatial-studio-backend-staging tail -50 /root/backend/logs/app.log
+```
 
-3. **Reference test script:** See `tests/specs/pose-validation.spec.ts` for the full Playwright test suite
-
-#### Option B: Manual Testing
-
-1. Open browser to `http://localhost:8585`
-2. In the UI:
-   - Enter camera name as `test`
-   - Select laptop camera option
-   - Capture human pose and observe avatar movement
-3. Validate visually:
-   - Does pose detection work correctly?
-   - Does avatar movement match pose?
-   - Are there any visual glitches or errors?
+See `/ssh-servers` skill for full remote debugging commands.
 
 ### Validate against acceptance criteria
 
@@ -191,7 +244,7 @@ Add an entry to the appropriate `CHANGELOG.md` file:
 If the version section doesn't exist, create it at the top of the file.
 
 ### 2. PROJECT_STRUCTURE.md
-If the changes affect project architecture, update `PROJECT_STRUCTURE.md` accordingly.
+If the changes affect project architecture (new files, moved directories, new processors), update `PROJECT_STRUCTURE.md` accordingly.
 
 ### 3. README.md
 If the changes affect setup, usage, or dependencies, update the relevant `README.md` file.
@@ -269,9 +322,9 @@ Before creating the pull request, verify all of the following:
 
 - [ ] All acceptance criteria from Step 1 are fully met
 - [ ] All TODO tasks are marked as `completed`
-- [ ] Tests written and passing (where applicable)
+- [ ] Playwright tests pass (`cd tests && npm test`)
 - [ ] Validation completed successfully (Step 4)
-- [ ] Lint checks pass with no issues
+- [ ] Lint checks pass (`tsc --noEmit`, `py_compile`)
 - [ ] Commit messages follow `type: description` format
 - [ ] Branch name follows `type/brief-description` convention
 - [ ] PR title is clear and descriptive

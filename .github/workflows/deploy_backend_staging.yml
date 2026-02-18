@@ -1,0 +1,98 @@
+name: Deploy backend (staging)
+
+on:
+  workflow_dispatch:
+    inputs:
+      backend_host:
+        description: 'Backend SSH hostname'
+        required: false
+        default: 'pose-backend-ssh.yingliu.site'
+  push:
+    branches:
+      - staging
+    paths:
+      - 'backend/**'
+      - '.github/workflows/deploy_backend_staging.yml'
+
+jobs:
+  deploy:
+    runs-on: ubuntu-latest
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+
+      - name: Setup SSH agent
+        uses: webfactory/ssh-agent@v0.9.0
+        with:
+          ssh-private-key: ${{ secrets.SSH_PRIVATE_KEY_BACKEND }}
+
+      - name: Install cloudflared
+        run: |
+          curl -L https://github.com/cloudflare/cloudflared/releases/latest/download/cloudflared-linux-amd64 -o cloudflared
+          sudo mv cloudflared /usr/local/bin/cloudflared
+          sudo chmod +x /usr/local/bin/cloudflared
+
+      - name: Configure SSH for Cloudflare
+        run: |
+          BACKEND_HOST="${{ inputs.backend_host || 'pose-backend-ssh.yingliu.site' }}"
+          mkdir -p ~/.ssh
+          cat << 'EOF' >> ~/.ssh/config
+          Host pose-backend
+            HostName pose-backend-ssh.yingliu.site
+            User root
+            ProxyCommand cloudflared access ssh --hostname %h
+          EOF
+          chmod 600 ~/.ssh/config
+
+      - name: Test SSH via Cloudflare
+        run: ssh -o StrictHostKeyChecking=accept-new pose-backend "echo 'SSH OK via Cloudflare'"
+
+      - name: Deploy to staging container and restart
+        run: |
+          CONTAINER=pose-spatial-studio-backend-staging
+
+          # Sync backend files to host staging area
+          rsync -az --delete \
+            --exclude '.venv*' \
+            --exclude '__pycache__' \
+            --exclude '*.pyc' \
+            --exclude 'models/' \
+            --exclude 'logs/' \
+            --exclude '.cache/' \
+            --exclude 'output/' \
+            backend/ pose-backend:/tmp/backend-staging/
+
+          # Copy into container, install deps, restart app
+          ssh pose-backend << ENDSSH
+            set -e
+
+            echo "=== Copying files into staging container ==="
+            docker cp /tmp/backend-staging/. $CONTAINER:/root/backend/
+
+            echo "=== Installing dependencies ==="
+            docker exec $CONTAINER bash -c "cd /root/backend && pip install --break-system-packages -r requirements.txt -q"
+
+            echo "=== Restarting app.py ==="
+            docker exec $CONTAINER bash -c "pkill -f 'python.*app.py'" || true
+            sleep 2
+            docker start $CONTAINER 2>/dev/null || true
+            docker exec -d $CONTAINER bash -c "cd /root/backend && mkdir -p logs && python app.py >> logs/app.log 2>&1"
+
+            echo "=== Waiting for startup ==="
+            sleep 5
+
+            echo "=== GPU check ==="
+            docker exec $CONTAINER python3 -c "import onnxruntime as ort; p=ort.get_available_providers(); print('Providers:', p); print('GPU:', 'YES' if 'CUDAExecutionProvider' in p else 'NO')" || true
+
+            echo "=== Health check ==="
+            if curl -s http://localhost:49102/health > /dev/null; then
+                echo "✓ Staging backend is healthy!"
+                curl -s http://localhost:49102/health
+            else
+                echo "✗ Staging backend health check failed!"
+                docker exec $CONTAINER bash -c "tail -50 /root/backend/logs/app.log 2>/dev/null" || true
+                exit 1
+            fi
+
+            rm -rf /tmp/backend-staging
+          ENDSSH

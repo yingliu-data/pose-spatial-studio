@@ -63,7 +63,7 @@ export function Skeleton3DViewer({ poseResult, videoElement, processedCanvas, re
   };
 
   return (
-    <div style={{ width: '100%', height: '600px', backgroundColor: '#000' }}>
+    <div style={{ width: '100%', height: '100%', backgroundColor: '#000' }}>
       <ViewerErrorBoundary>
         <Canvas>
           <PerspectiveCamera makeDefault position={[0, 0, 3]} />

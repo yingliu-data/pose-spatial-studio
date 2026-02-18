@@ -125,7 +125,9 @@ cd backend && python -m py_compile app.py
 
 ## Step 4: Validate
 
-### 4A: Automated testing (compulsory)
+**IMPORTANT: Steps 4A, 4C, and 4D are ALL compulsory. You MUST run all three before proceeding to Step 5. Do NOT skip any of them.** Failure to run all three validation steps is a workflow violation.
+
+### 4A: Automated testing (compulsory — MUST RUN)
 
 Run Playwright E2E tests from the `tests/` directory. Playwright auto-starts both backend (port 49101) and frontend (port 8585) if they aren't already running.
 
@@ -133,6 +135,10 @@ Run Playwright E2E tests from the `tests/` directory. Playwright auto-starts bot
 cd tests && npm test
 ```
 
+At minimum, run the mediapipe video test on chromium:
+```bash
+cd tests && npx playwright test specs/mediapipe-video-test.spec.ts --project=chromium
+```
 
 **Other test commands:**
 ```bash
@@ -141,7 +147,7 @@ npm run test:debug     # Debug mode with breakpoints
 npm run test:ui        # Interactive Playwright UI
 npm run test:report    # View HTML report after a run
 ```
-test pose estimation performance by uploading tests/test.mp4 to initiate stream on UI and click play
+Test pose estimation performance by uploading tests/test.mp4 to initiate stream on UI and click play.
 Test specs live in `tests/specs/`:
 - `pose-validation.spec.ts` -- Main E2E test suite for pose detection
 - `mediapipe-video-test.spec.ts` -- MediaPipe video input test
@@ -171,9 +177,9 @@ If automated tests are insufficient or you need to test visually:
    - Select a camera device
    - Verify pose landmarks overlay and 3D skeleton/avatar respond
 
-### 4C: Staging environment testing (compulsory)
+### 4C: Staging environment testing (compulsory — MUST RUN)
 
-Use the staging environment to validate changes before production deployment.
+**You MUST run this step.** Use the staging environment to validate changes before production deployment.
 
 **Staging infrastructure:**
 - **Backend container**: `pose-spatial-studio-backend-staging` on VM2 port `49102`
@@ -213,9 +219,9 @@ curl https://pose-backend-staging.yingliu.site/health
 ```
 
 
-### 4D: Remote GPU validation
+### 4D: Remote GPU validation (compulsory — MUST RUN)
 
-When testing GPU-dependent features (MediaPipe GPU delegate, ONNX CUDA):
+**You MUST run this step.** Verify the staging backend is healthy and GPU-accessible after deployment. This applies to all changes, not just GPU-specific features, because the backend always runs on GPU infrastructure.
 
 ```bash
 # Production backend
@@ -232,9 +238,14 @@ See `/ssh-servers` skill for full remote debugging commands.
 
 ### Validate against acceptance criteria
 
-- Does the implementation meet all criteria from Step 1?
-- If **NO**: Return to Step 3 and continue development
-- If **YES**: Proceed to Step 5
+Before proceeding, confirm ALL of the following:
+- [ ] **4A** Automated Playwright tests passed
+- [ ] **4C** Staging environment test passed (PR merged to staging, deployed, test run)
+- [ ] **4D** Remote GPU validation passed (health check + logs reviewed)
+- [ ] Implementation meets all acceptance criteria from Step 1
+
+If any validation fails → Return to Step 3 and fix.
+If all pass → Proceed to Step 5.
 
 ---
 
@@ -345,9 +356,9 @@ Before creating the pull request, verify all of the following:
 
 - [ ] All acceptance criteria from Step 1 are fully met
 - [ ] All TODO tasks are marked as `completed`
-- [ ] Playwright tests pass (`cd tests && npm test`) -- compulsory
-- [ ] Staging environment tested and verified -- compulsory
-- [ ] Validation completed successfully (Step 4)
+- [ ] **4A** Playwright tests pass (`cd tests && npm test`) -- compulsory
+- [ ] **4C** Staging environment tested and verified (merge to staging, deploy, run staging test) -- compulsory
+- [ ] **4D** Remote GPU validation passed (health check + staging logs) -- compulsory
 - [ ] Lint checks pass (`tsc --noEmit`, `py_compile`)
 - [ ] Commit messages follow `type: description` format
 - [ ] Branch name follows `type/brief-description` convention

@@ -2,6 +2,7 @@ import { Socket } from 'socket.io-client';
 import { PoseResult } from '@/types/pose';
 import { StreamViewer } from './StreamViewer';
 import { useState, useCallback, useRef, useEffect } from 'react';
+import type { ModelType } from '@/App';
 
 interface Stream {
   streamId: string;
@@ -10,6 +11,7 @@ interface Stream {
   deviceLabel?: string;
   videoFile?: File;
   processorConfig?: Record<string, any>;
+  modelType: ModelType;
   active: boolean;
   createdAt: number;
 }
@@ -20,11 +22,13 @@ interface MultiViewGridProps {
   poseResults: Map<string, PoseResult>;
   selectedStream: string | null;
   onFlushStream: (streamId: string) => void;
+  onSwitchModel: (streamId: string, newModel: ModelType) => void;
+  switchingModels: Map<string, string>;
 }
 
 const getGridColumns = (count: number) => count === 1 ? 1 : count === 2 ? 2 : count <= 4 ? 2 : count <= 6 ? 3 : 4;
 
-export function MultiViewGrid({ socket, streams, poseResults, selectedStream, onFlushStream }: MultiViewGridProps) {
+export function MultiViewGrid({ socket, streams, poseResults, selectedStream, onFlushStream, onSwitchModel, switchingModels }: MultiViewGridProps) {
   const displayStreams = selectedStream ? streams.filter(s => s.streamId === selectedStream) : streams;
   const hasVideoStreams = displayStreams.some(s => s.sourceType === 'video');
   const videoStreams = displayStreams.filter(s => s.sourceType === 'video');
@@ -32,12 +36,8 @@ export function MultiViewGrid({ socket, streams, poseResults, selectedStream, on
   const [isPlaying, setIsPlaying] = useState(false);
   const [currentTime, setCurrentTime] = useState(0);
   const [duration, setDuration] = useState(0);
-  const [gridHeight, setGridHeight] = useState(60);
-  const [isDragging, setIsDragging] = useState(false);
-  
   const videoElementsRef = useRef<Map<string, HTMLVideoElement>>(new Map());
   const animationFrameRef = useRef<number | undefined>(undefined);
-  const containerRef = useRef<HTMLDivElement>(null);
 
   const registerVideoElement = useCallback((streamId: string, element: HTMLVideoElement | null) => {
     if (element) {
@@ -65,25 +65,6 @@ export function MultiViewGrid({ socket, streams, poseResults, selectedStream, on
     };
   }, [isPlaying]);
 
-  useEffect(() => {
-    if (!isDragging) return;
-
-    const handleMouseMove = (e: MouseEvent) => {
-      if (!containerRef.current) return;
-      const rect = containerRef.current.getBoundingClientRect();
-      const percentage = ((e.clientY - rect.top) / rect.height) * 100;
-      setGridHeight(Math.max(20, Math.min(80, percentage)));
-    };
-
-    const handleMouseUp = () => setIsDragging(false);
-
-    document.addEventListener('mousemove', handleMouseMove);
-    document.addEventListener('mouseup', handleMouseUp);
-    return () => {
-      document.removeEventListener('mousemove', handleMouseMove);
-      document.removeEventListener('mouseup', handleMouseUp);
-    };
-  }, [isDragging]);
 
   const togglePlayPause = async () => {
     const videos = Array.from(videoElementsRef.current.values());
@@ -120,33 +101,32 @@ export function MultiViewGrid({ socket, streams, poseResults, selectedStream, on
   }
 
   return (
-    <div ref={containerRef} style={{ display: 'flex', flexDirection: 'column', height: '100%' }}>
-      <div style={{ height: hasVideoStreams ? `${gridHeight}%` : '100%', display: 'flex', flexDirection: 'column', overflow: 'hidden' }}>
-        <div className="multi-view-grid" style={{ display: 'grid', gridTemplateColumns: `repeat(${getGridColumns(displayStreams.length)}, 1fr)`, gap: '16px', padding: '16px', flex: 1, overflow: 'auto' }}>
-          {displayStreams.map((stream) => (
-            <StreamViewer 
-              key={stream.streamId} 
-              socket={socket} 
-              stream={stream} 
-              poseResult={poseResults.get(stream.streamId) || null}
-              onVideoElementReady={stream.sourceType === 'video' ? (el) => registerVideoElement(stream.streamId, el) : undefined}
-            />
-          ))}
-        </div>
-        
-        {hasVideoStreams && (
-          <div style={{ padding: '14px 24px', background: 'rgba(255, 255, 255, 0.05)', backdropFilter: 'blur(60px) saturate(180%)', WebkitBackdropFilter: 'blur(60px) saturate(180%)', borderTop: '1px solid rgba(255, 255, 255, 0.07)', display: 'flex', alignItems: 'center', gap: '16px' }}>
-            <button onClick={togglePlayPause} className="btn btn-primary" style={{ padding: '10px 20px' }}>
-              {isPlaying ? '⏸ Pause' : '▶ Play'}
-            </button>
-            <span style={{ color: 'rgba(255, 255, 255, 0.5)', fontSize: '13px', minWidth: '100px', fontWeight: 500, fontVariantNumeric: 'tabular-nums' }}>
-              {Math.floor(currentTime)}s / {Math.floor(duration)}s
-            </span>
-            <input type="range" min="0" max={duration || 0} value={currentTime} onChange={handleSeek} step="0.1" style={{ flex: 1, cursor: 'pointer', accentColor: '#0a84ff' }} />
-          </div>
-        )}
+    <div style={{ display: 'flex', flexDirection: 'column', height: '100%' }}>
+      <div className="multi-view-grid" style={{ display: 'grid', gridTemplateColumns: `repeat(${getGridColumns(displayStreams.length)}, 1fr)`, gap: '16px', padding: '16px', flex: 1, overflow: 'auto' }}>
+        {displayStreams.map((stream) => (
+          <StreamViewer
+            key={stream.streamId}
+            socket={socket}
+            stream={stream}
+            poseResult={poseResults.get(stream.streamId) || null}
+            onVideoElementReady={stream.sourceType === 'video' ? (el) => registerVideoElement(stream.streamId, el) : undefined}
+            onSwitchModel={(newModel) => onSwitchModel(stream.streamId, newModel)}
+            switchingMessage={switchingModels.get(stream.streamId)}
+          />
+        ))}
       </div>
-      
+
+      {hasVideoStreams && (
+        <div style={{ padding: '14px 24px', background: 'rgba(255, 255, 255, 0.05)', backdropFilter: 'blur(60px) saturate(180%)', WebkitBackdropFilter: 'blur(60px) saturate(180%)', borderTop: '1px solid rgba(255, 255, 255, 0.07)', display: 'flex', alignItems: 'center', gap: '16px', flexShrink: 0 }}>
+          <button onClick={togglePlayPause} className="btn btn-primary" style={{ padding: '10px 20px' }}>
+            {isPlaying ? '⏸ Pause' : '▶ Play'}
+          </button>
+          <span style={{ color: 'rgba(255, 255, 255, 0.5)', fontSize: '13px', minWidth: '100px', fontWeight: 500, fontVariantNumeric: 'tabular-nums' }}>
+            {Math.floor(currentTime)}s / {Math.floor(duration)}s
+          </span>
+          <input type="range" min="0" max={duration || 0} value={currentTime} onChange={handleSeek} step="0.1" style={{ flex: 1, cursor: 'pointer', accentColor: '#0a84ff' }} />
+        </div>
+      )}
     </div>
   );
 }

@@ -14,7 +14,8 @@ pose-spatial-studio/
 │   ├── processors/
 │   │   ├── base_processor.py         # Abstract processor interface
 │   │   ├── image_processor.py        # Frame preprocessing
-│   │   └── mediapipe_processor.py    # Pose estimation (2D/3D landmarks)
+│   │   ├── mediapipe_processor.py    # Pose estimation (2D/3D landmarks)
+│   │   └── yolo_pose_processor.py    # YOLO-NAS-Pose estimation (COCO 17 keypoints)
 │   ├── utils/
 │   │   ├── cache.py                  # Caching utilities
 │   │   ├── locate_path.py            # Path resolution helpers
@@ -108,11 +109,13 @@ pose-spatial-studio/
 
 **mediapipe_processor.py** - Pose estimation (2D/3D landmarks, skeleton overlay). Dual running mode: `LIVE_STREAM` (async callbacks) for camera, `VIDEO` (synchronous, no frame delay) for video uploads
 
+**yolo_pose_processor.py** - YOLO-NAS-Pose estimation via super-gradients. Outputs COCO 17 keypoints mapped to unified MediaPipe skeleton structure. Uses perspective unprojection for 3D world landmarks. Config `processor_type: "yolo3d"`.
+
 ### Frontend
 
 **App.tsx** - Root component, manages streams and WebSocket connection
 
-**Controls.tsx** - Stream management: add/delete streams, camera selection, config upload
+**Controls.tsx** - Stream management: add/delete streams, camera selection, model selection, config upload
 
 **CameraCapture.tsx** - Camera access, 10 FPS capture, JPEG encoding, receives processed frames
 
@@ -199,15 +202,17 @@ VM1 (Frontend Edge)          VM2 (GPU Backend)
 | `initialize_stream` | `{ stream_id, processor_type, processor_config, source_type }` |
 | `process_frame` | `{ stream_id, frame (base64), timestamp_ms }` |
 | `cleanup_processor` | `{ stream_id }` |
+| `switch_model` | `{ stream_id, processor_type }` |
 
 ### Server → Client
 
 | Event | Payload |
 |-------|---------|
 | `connection_status` | `{ status, sid }` |
-| `stream_initialized` | `{ stream_id, status, message }` |
+| `stream_initialized` | `{ stream_id, status, message, processor_type }` |
 | `stream_error` | `{ stream_id, message }` |
 | `pose_result` | `{ stream_id, frame (base64), pose_data, timestamp_ms }` |
+| `model_switched` | `{ stream_id, processor_type, message }` |
 | `error` | `{ message }` |
 
 ## Configuration

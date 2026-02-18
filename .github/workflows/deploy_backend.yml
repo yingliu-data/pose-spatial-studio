@@ -59,6 +59,8 @@ jobs:
       - name: Deploy to container and restart
         run: |
           CONTAINER=pose-spatial-studio-backend
+          WEIGHTS_DIR="/root/.cache/torch/hub/checkpoints"
+          WEIGHTS_FILE="yolo_nas_pose_l_coco_pose.pth"
 
           # Sync backend files to host staging area
           rsync -az --delete \
@@ -78,8 +80,23 @@ jobs:
             echo "=== Copying files into container ==="
             docker cp /tmp/backend-staging/. $CONTAINER:/root/backend/
 
+            echo "=== Installing build tools ==="
+            docker exec $CONTAINER bash -c "apt-get update -qq && apt-get install -y -qq cmake build-essential protobuf-compiler python3-dev > /dev/null 2>&1"
+
             echo "=== Installing dependencies ==="
             docker exec $CONTAINER bash -c "cd /root/backend && pip install --break-system-packages -r requirements.txt -q"
+            docker exec $CONTAINER bash -c "pip install --break-system-packages --no-deps 'super-gradients>=3.7.0' 'albumentations>=1.3,<1.4' 'data-gradients>=0.3.1,<0.4' -q"
+
+            echo "=== Pre-downloading YOLO-NAS-Pose weights (if not cached) ==="
+            docker exec $CONTAINER mkdir -p $WEIGHTS_DIR
+            if ! docker exec $CONTAINER test -f "$WEIGHTS_DIR/$WEIGHTS_FILE"; then
+              curl -L -o /tmp/$WEIGHTS_FILE https://sg-hub-nv.s3.amazonaws.com/models/$WEIGHTS_FILE
+              docker cp /tmp/$WEIGHTS_FILE $CONTAINER:$WEIGHTS_DIR/$WEIGHTS_FILE
+              rm -f /tmp/$WEIGHTS_FILE
+              echo "✓ YOLO weights downloaded"
+            else
+              echo "✓ YOLO weights already cached"
+            fi
 
             echo "=== Restarting app.py ==="
             docker exec $CONTAINER bash -c "pkill -f 'python.*app.py'" || true

@@ -17,8 +17,8 @@ Mark each task as `in_progress` when starting work on it, and `completed` immedi
 1. **Understand** -- Analyze requirements and define acceptance criteria
 2. **Branch** -- Create a properly named branch from the correct base
 3. **Implement** -- Make changes following code conventions and lint standards
-4. **Validate** -- Run automated tests and manual checks
-5. **Document** -- Update CHANGELOG.md, PROJECT_STRUCTURE.md, README.md as needed
+4. **Validate** -- Run automated tests (compulsory), staging tests (compulsory), manual checks (optional)
+5. **Document** -- Update CHANGELOG.md, `.claude/PROJECT_STRUCTURE.md`, README.md as needed
 6. **Review** -- Optionally run a developer review via `/code-review`
 7. **Commit** -- Stage files and commit with conventional message format
 8. **Push & PR** -- Push branch and create a pull request
@@ -31,8 +31,7 @@ Thoroughly analyze the requirement by:
 1. Breaking down the request into discrete components
 2. Identifying acceptance criteria, dependencies, and any linked PRDs or designs
 3. Using `AskUserQuestion` to clarify any ambiguities
-4. Search the web for a better solution
-5. Understand the project based on `PROJECT_STRUCTURE.md`
+4. Understand the project based on `.claude/PROJECT_STRUCTURE.md`
 
 Document the following:
 - Summary of the requirement
@@ -47,7 +46,7 @@ Document the following:
 
 ### Prepare the base
 
-1. Read `PROJECT_STRUCTURE.md` to understand the project architecture
+1. Read `.claude/PROJECT_STRUCTURE.md` to understand the project architecture
 2. Identify which folder(s) will be affected by the changes
 3. Fetch latest from remote:
    ```bash
@@ -91,6 +90,8 @@ When a ticket depends on another ticket still in code review, branch from that t
 
 ## Step 3: Implement Changes
 
+**Current default model**: MediaPipe (with GPU delegate). The backend processor is `processors/mediapipe_processor.py`. Alternative processors: RTMPose3D at `processors/rtmpose_processor.py`, YOLO-NAS-Pose at `processors/yolo_pose_processor.py` (config `processor_type: "yolo3d"`). Users can select the model from a dropdown in the stream creation form or switch models live via the overlay on the stream viewer. Available models are defined in `AVAILABLE_MODELS` in `frontend/src/App.tsx`.
+
 Follow these guidelines during implementation:
 
 1. **Code conventions**: Maintain consistent formatting and style with existing codebase
@@ -111,21 +112,32 @@ cd frontend && npx tsc --noEmit
 Compile-check all modified Python files:
 ```bash
 cd backend && python -m py_compile app.py
-# Also check any modified processor/util files:
-# python -m py_compile processors/<file>.py
-# python -m py_compile utils/<file>.py
+# Check modified processor files:
+# python -m py_compile processors/mediapipe_processor.py
+# python -m py_compile processors/base_processor.py
+# python -m py_compile processors/image_processor.py
+# Check core and util files:
+# python -m py_compile core/websocket_handler.py
+# python -m py_compile config.py
 ```
 
 ---
 
 ## Step 4: Validate
 
-### 4A: Automated testing (preferred)
+**IMPORTANT: Steps 4A, 4C, and 4D are ALL compulsory. You MUST run all three before proceeding to Step 5. Do NOT skip any of them.** Failure to run all three validation steps is a workflow violation.
+
+### 4A: Automated testing (compulsory — MUST RUN)
 
 Run Playwright E2E tests from the `tests/` directory. Playwright auto-starts both backend (port 49101) and frontend (port 8585) if they aren't already running.
 
 ```bash
 cd tests && npm test
+```
+
+At minimum, run the mediapipe video test on chromium:
+```bash
+cd tests && npx playwright test specs/mediapipe-video-test.spec.ts --project=chromium
 ```
 
 **Other test commands:**
@@ -135,10 +147,15 @@ npm run test:debug     # Debug mode with breakpoints
 npm run test:ui        # Interactive Playwright UI
 npm run test:report    # View HTML report after a run
 ```
+Test pose estimation performance by uploading tests/test.mp4 to initiate stream on UI and click play.
+Test specs live in `tests/specs/`:
+- `pose-validation.spec.ts` -- Main E2E test suite for pose detection
+- `mediapipe-video-test.spec.ts` -- MediaPipe video input test
+- `staging-video-test.spec.ts` -- Staging environment test (use with `playwright.staging.config.ts`)
 
-Test specs live in `tests/specs/`. When adding new features, consider adding or updating specs.
+When adding new features, consider adding or updating specs.
 
-### 4B: Manual testing
+### 4B: Manual testing (optional)
 
 If automated tests are insufficient or you need to test visually:
 
@@ -160,9 +177,9 @@ If automated tests are insufficient or you need to test visually:
    - Select a camera device
    - Verify pose landmarks overlay and 3D skeleton/avatar respond
 
-### 4C: Staging environment testing
+### 4C: Staging environment testing (compulsory — MUST RUN)
 
-Use the staging environment to validate changes before production deployment.
+**You MUST run this step.** Use the staging environment to validate changes before production deployment.
 
 **Staging infrastructure:**
 - **Backend container**: `pose-spatial-studio-backend-staging` on VM2 port `49102`
@@ -202,9 +219,9 @@ curl https://pose-backend-staging.yingliu.site/health
 ```
 
 
-### 4D: Remote GPU validation
+### 4D: Remote GPU validation (compulsory — MUST RUN)
 
-When testing GPU-dependent features (MediaPipe GPU delegate, ONNX CUDA):
+**You MUST run this step.** Verify the staging backend is healthy and GPU-accessible after deployment. This applies to all changes, not just GPU-specific features, because the backend always runs on GPU infrastructure.
 
 ```bash
 # Production backend
@@ -221,9 +238,14 @@ See `/ssh-servers` skill for full remote debugging commands.
 
 ### Validate against acceptance criteria
 
-- Does the implementation meet all criteria from Step 1?
-- If **NO**: Return to Step 3 and continue development
-- If **YES**: Proceed to Step 5
+Before proceeding, confirm ALL of the following:
+- [ ] **4A** Automated Playwright tests passed
+- [ ] **4C** Staging environment test passed (PR merged to staging, deployed, test run)
+- [ ] **4D** Remote GPU validation passed (health check + logs reviewed)
+- [ ] Implementation meets all acceptance criteria from Step 1
+
+If any validation fails → Return to Step 3 and fix.
+If all pass → Proceed to Step 5.
 
 ---
 
@@ -243,14 +265,17 @@ Add an entry to the appropriate `CHANGELOG.md` file:
 
 If the version section doesn't exist, create it at the top of the file.
 
-### 2. PROJECT_STRUCTURE.md
-If the changes affect project architecture (new files, moved directories, new processors), update `PROJECT_STRUCTURE.md` accordingly.
+### 2. `.claude/PROJECT_STRUCTURE.md`
+If the changes affect project architecture (new files, moved directories, new processors), update `.claude/PROJECT_STRUCTURE.md` accordingly.
 
 ### 3. README.md
 If the changes affect setup, usage, or dependencies, update the relevant `README.md` file.
 
 ### 4. TODO status
 Mark all completed tasks in your TODO list as `completed` using `TodoWrite`.
+
+### 5. Skill update
+Update SKILL.md files in `.claude/skills/` based on the progress in the session, so skills adapt to the user's development workflow.
 
 ---
 
@@ -294,6 +319,15 @@ Use conventional commits: `type: description`
 
 ## Step 8: Push Branch and Create Pull Request
 
+### Rebase before push
+
+Rebase onto the target branch to ensure a clean history:
+```bash
+git fetch origin
+git rebase origin/staging
+```
+Resolve any conflicts before pushing.
+
 ### Push
 
 ```bash
@@ -322,13 +356,14 @@ Before creating the pull request, verify all of the following:
 
 - [ ] All acceptance criteria from Step 1 are fully met
 - [ ] All TODO tasks are marked as `completed`
-- [ ] Playwright tests pass (`cd tests && npm test`)
-- [ ] Validation completed successfully (Step 4)
+- [ ] **4A** Playwright tests pass (`cd tests && npm test`) -- compulsory
+- [ ] **4C** Staging environment tested and verified (merge to staging, deploy, run staging test) -- compulsory
+- [ ] **4D** Remote GPU validation passed (health check + staging logs) -- compulsory
 - [ ] Lint checks pass (`tsc --noEmit`, `py_compile`)
 - [ ] Commit messages follow `type: description` format
 - [ ] Branch name follows `type/brief-description` convention
 - [ ] PR title is clear and descriptive
-- [ ] Documentation updated (CHANGELOG.md, README.md, PROJECT_STRUCTURE.md as needed)
+- [ ] Documentation updated (CHANGELOG.md, README.md, `.claude/PROJECT_STRUCTURE.md` as needed)
 - [ ] No secrets, credentials, or sensitive data in committed code
 - [ ] Code follows project conventions and existing patterns
 - [ ] No unnecessary files added (temp files, IDE configs, build artifacts)

@@ -10,6 +10,7 @@ import base64
 from typing import Dict, Any, Tuple
 from processors.mediapipe_processor import MediaPipeProcessor
 from processors.rtmpose_processor import RTMPoseProcessor
+from processors.yolo_pose_processor import YoloPoseProcessor
 from processors.image_processor import ImageProcessor
 from processors.base_processor import BaseProcessor
 from processors.data_processor import DataProcessor
@@ -99,10 +100,13 @@ class WebSocketHandler:
                     elif processor_type == 'rtmpose':
                         logger.info(f"[INIT] Creating RTMpose processor")
                         processor_pipeline['pose_processor'] = RTMPoseProcessor(processor_id, processor_config)
+                    elif processor_type == 'yolo3d':
+                        logger.info(f"[INIT] Creating YOLO-NAS-Pose processor")
+                        processor_pipeline['pose_processor'] = YoloPoseProcessor(processor_id, processor_config)
                     else:
                         await self.sio.emit('stream_error', {
                             'stream_id': stream_id,
-                            'message': f'Unknown processor type: {processor_type}. Use "mediapipe" or "rtmpose" in config model_name.'
+                            'message': f'Unknown processor type: {processor_type}. Use "mediapipe", "rtmpose", or "yolo3d" in config.'
                         }, room=sid)
                         return
                 
@@ -173,6 +177,108 @@ class WebSocketHandler:
             processor_id = f"{sid}_{stream_id}"
             self.cleanup_processor(processor_id)
         
+        @self.sio.event
+        async def switch_model(sid, data):
+            """Switch the pose processor for an active stream without recreating the full pipeline."""
+            try:
+                stream_id = data.get('stream_id')
+                new_processor_type = data.get('processor_type')
+                processor_id = f"{sid}_{stream_id}"
+
+                if not new_processor_type:
+                    await self.sio.emit('stream_error', {
+                        'stream_id': stream_id,
+                        'message': 'Missing processor_type'
+                    }, room=sid)
+                    return
+
+                if processor_id not in self.processors:
+                    await self.sio.emit('stream_error', {
+                        'stream_id': stream_id,
+                        'message': 'Stream not initialized'
+                    }, room=sid)
+                    return
+
+                pipeline = self.processors[processor_id]
+                current_pose = pipeline.get('pose_processor')
+
+                # Determine current processor type
+                current_type = None
+                if isinstance(current_pose, MediaPipeProcessor):
+                    current_type = 'mediapipe'
+                elif isinstance(current_pose, RTMPoseProcessor):
+                    current_type = 'rtmpose'
+
+                # Skip if already using the requested model
+                if current_type == new_processor_type:
+                    await self.sio.emit('model_switched', {
+                        'stream_id': stream_id,
+                        'processor_type': new_processor_type,
+                        'message': f'Already using {new_processor_type}'
+                    }, room=sid)
+                    return
+
+                logger.info(f"[SWITCH] Switching {stream_id} from {current_type} to {new_processor_type}")
+
+                await self.sio.emit('stream_loading', {
+                    'stream_id': stream_id,
+                    'status': 'loading',
+                    'message': f'Switching to {new_processor_type} model...'
+                }, room=sid)
+
+                # Build config for the new processor, preserving source_type
+                source_type = current_pose.config.get('pose_processor', {}).get('source_type', 'camera') if current_pose else 'camera'
+
+                processor_config = dict(DEFAULT_CONFIG)
+                processor_config['pose_processor'] = dict(processor_config.get('pose_processor', {}))
+                processor_config['pose_processor']['processor_type'] = new_processor_type
+                processor_config['pose_processor']['source_type'] = source_type
+
+                # Create new pose processor
+                if new_processor_type == 'mediapipe':
+                    new_pose = MediaPipeProcessor(processor_id, processor_config)
+                elif new_processor_type == 'rtmpose':
+                    new_pose = RTMPoseProcessor(processor_id, processor_config)
+                else:
+                    await self.sio.emit('stream_error', {
+                        'stream_id': stream_id,
+                        'message': f'Unknown processor type: {new_processor_type}'
+                    }, room=sid)
+                    return
+
+                if not new_pose.initialize():
+                    await self.sio.emit('stream_error', {
+                        'stream_id': stream_id,
+                        'message': f'Failed to initialize {new_processor_type} processor'
+                    }, room=sid)
+                    return
+
+                # Drain pending frames and wait for in-flight processing to finish
+                # before swapping, to avoid using a cleaned-up processor
+                self._latest_frames.pop(processor_id, None)
+                while processor_id in self._active_streams:
+                    await asyncio.sleep(0.01)
+
+                # Cleanup old pose processor and swap in the new one
+                if current_pose:
+                    current_pose.cleanup()
+                pipeline['pose_processor'] = new_pose
+
+                logger.info(f"[SWITCH] Stream {stream_id} switched to {new_processor_type}")
+
+                await self.sio.emit('model_switched', {
+                    'stream_id': stream_id,
+                    'processor_type': new_processor_type,
+                    'message': f'Switched to {new_processor_type}'
+                }, room=sid)
+
+            except Exception as e:
+                logger.error(f"[SWITCH] Error switching model: {e}", exc_info=True)
+                await self.sio.emit('stream_error', {
+                    'stream_id': data.get('stream_id'),
+                    'message': f'Model switch error: {str(e)}'
+                }, room=sid)
+
         @self.sio.event
         async def flush_stream(sid, data):
             try:

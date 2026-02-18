@@ -10,6 +10,7 @@ import base64
 from typing import Dict, Any, Tuple
 from processors.mediapipe_processor import MediaPipeProcessor
 from processors.rtmpose_processor import RTMPoseProcessor
+from processors.yolo_pose_processor import YoloPoseProcessor
 from processors.image_processor import ImageProcessor
 from processors.base_processor import BaseProcessor
 from processors.data_processor import DataProcessor
@@ -99,10 +100,13 @@ class WebSocketHandler:
                     elif processor_type == 'rtmpose':
                         logger.info(f"[INIT] Creating RTMpose processor")
                         processor_pipeline['pose_processor'] = RTMPoseProcessor(processor_id, processor_config)
+                    elif processor_type == 'yolo3d':
+                        logger.info(f"[INIT] Creating YOLO-NAS-Pose processor")
+                        processor_pipeline['pose_processor'] = YoloPoseProcessor(processor_id, processor_config)
                     else:
                         await self.sio.emit('stream_error', {
                             'stream_id': stream_id,
-                            'message': f'Unknown processor type: {processor_type}. Use "mediapipe" or "rtmpose" in config model_name.'
+                            'message': f'Unknown processor type: {processor_type}. Use "mediapipe", "rtmpose", or "yolo3d" in config.'
                         }, room=sid)
                         return
                 

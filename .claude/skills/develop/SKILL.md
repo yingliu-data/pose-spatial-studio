@@ -90,7 +90,7 @@ When a ticket depends on another ticket still in code review, branch from that t
 
 ## Step 3: Implement Changes
 
-**Current default model**: MediaPipe (with GPU delegate). The backend processor is `processors/mediapipe_processor.py`. An alternative RTMPose3D processor exists at `processors/rtmpose_processor.py`. Users can select the model from a dropdown in the stream creation form or switch models live via the overlay on the stream viewer. Available models are defined in `AVAILABLE_MODELS` in `frontend/src/App.tsx`.
+**Current default model**: MediaPipe (with GPU delegate). The backend processor is `processors/mediapipe_processor.py`. Alternative processors: RTMPose3D at `processors/rtmpose_processor.py`, YOLO-NAS-Pose at `processors/yolo_pose_processor.py` (config `processor_type: "yolo3d"`). Users can select the model from a dropdown in the stream creation form or switch models live via the overlay on the stream viewer. Available models are defined in `AVAILABLE_MODELS` in `frontend/src/App.tsx`.
 
 Follow these guidelines during implementation:
 

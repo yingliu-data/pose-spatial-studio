@@ -6,6 +6,7 @@ mediapipe
 numpy
 rtmlib>=0.0.14
 onnxruntime-gpu
+super-gradients
 tqdm
 
 # CLIP for image retrieval

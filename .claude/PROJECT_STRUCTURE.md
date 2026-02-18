@@ -14,7 +14,8 @@ pose-spatial-studio/
 │   ├── processors/
 │   │   ├── base_processor.py         # Abstract processor interface
 │   │   ├── image_processor.py        # Frame preprocessing
-│   │   └── mediapipe_processor.py    # Pose estimation (2D/3D landmarks)
+│   │   ├── mediapipe_processor.py    # Pose estimation (2D/3D landmarks)
+│   │   └── yolo_pose_processor.py    # YOLO-NAS-Pose estimation (COCO 17 keypoints)
 │   ├── utils/
 │   │   ├── cache.py                  # Caching utilities
 │   │   ├── locate_path.py            # Path resolution helpers
@@ -107,6 +108,8 @@ pose-spatial-studio/
 **image_processor.py** - Preprocessing stage (filters, transforms, adjustments)
 
 **mediapipe_processor.py** - Pose estimation (2D/3D landmarks, skeleton overlay). Dual running mode: `LIVE_STREAM` (async callbacks) for camera, `VIDEO` (synchronous, no frame delay) for video uploads
+
+**yolo_pose_processor.py** - YOLO-NAS-Pose estimation via super-gradients. Outputs COCO 17 keypoints mapped to unified MediaPipe skeleton structure. Uses perspective unprojection for 3D world landmarks. Config `processor_type: "yolo3d"`.
 
 ### Frontend
 

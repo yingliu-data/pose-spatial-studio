@@ -83,6 +83,7 @@ jobs:
 
             echo "=== Installing dependencies ==="
             docker exec $CONTAINER bash -c "cd /root/backend && pip install --break-system-packages -r requirements.txt -q"
+            docker exec $CONTAINER bash -c "pip install --break-system-packages --no-deps 'super-gradients>=3.7.0' -q"
 
             echo "=== Restarting app.py ==="
             docker exec $CONTAINER bash -c "pkill -f 'python.*app.py'" || true

@@ -1,5 +1,15 @@
-from pathlib import Path
 import os
+
+# Prevent per-operation thread over-subscription in multi-stream scenarios.
+# Must be set before numpy/cv2/BLAS are imported.
+if "OMP_NUM_THREADS" not in os.environ:
+    os.environ["OMP_NUM_THREADS"] = "1"
+if "MKL_NUM_THREADS" not in os.environ:
+    os.environ["MKL_NUM_THREADS"] = "1"
+if "OPENBLAS_NUM_THREADS" not in os.environ:
+    os.environ["OPENBLAS_NUM_THREADS"] = "1"
+
+from pathlib import Path
 import json
 import logging
 from utils.locate_path import get_project_root
@@ -9,6 +19,9 @@ logger = logging.getLogger(__name__)
 HOST = os.getenv("POSE_STUDIO_HOST", "0.0.0.0")
 PORT = int(os.getenv("POSE_STUDIO_PORT", 49101))
 DEBUG = False
+
+# Thread pool workers for concurrent stream processing (tunable via env var)
+POSE_WORKERS = int(os.getenv("POSE_WORKERS", str(min(os.cpu_count() or 4, 16))))
 
 CORS_ORIGINS = [
     "http://localhost:8585",
@@ -29,12 +42,20 @@ CACHE_DIR = PROJECT_ROOT / ".cache"
 DEFAULT_CONFIG = json.load(open(BASE_DIR / "config_template.json", "r"))
 
 def detect_gpu_device() -> str:
-    """Detect available GPU device for ONNX Runtime inference."""
+    """Detect available GPU device for inference acceleration."""
+    # Check ONNX Runtime CUDA provider (used by RTMPose)
     try:
         import onnxruntime as ort
-        available_providers = ort.get_available_providers()
-        if 'CUDAExecutionProvider' in available_providers:
-            logger.info("GPU detected: CUDAExecutionProvider available")
+        if 'CUDAExecutionProvider' in ort.get_available_providers():
+            logger.info("GPU detected: ONNX Runtime CUDAExecutionProvider")
+            return 'cuda'
+    except ImportError:
+        pass
+    # Check PyTorch CUDA (also indicates a usable NVIDIA GPU)
+    try:
+        import torch
+        if torch.cuda.is_available():
+            logger.info(f"GPU detected: PyTorch CUDA ({torch.cuda.get_device_name(0)})")
             return 'cuda'
     except ImportError:
         pass

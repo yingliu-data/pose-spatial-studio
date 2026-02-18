@@ -25,6 +25,15 @@ def _get_gpu_info() -> dict:
             info["device"] = "cuda"
     except ImportError:
         info["onnxruntime"] = "not installed"
+    if not info["cuda_available"]:
+        try:
+            import torch
+            if torch.cuda.is_available():
+                info["cuda_available"] = True
+                info["device"] = "cuda"
+                info["gpu_name"] = torch.cuda.get_device_name(0)
+        except ImportError:
+            pass
     return info
 
 @asynccontextmanager

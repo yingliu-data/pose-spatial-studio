@@ -9,6 +9,20 @@ onnxruntime-gpu
 onnx>=1.15.0
 pycocotools>=2.0.7
 # super-gradients installed separately with --no-deps (pins onnxruntime==1.15.0 which conflicts with rtmlib)
+# The following are super-gradients transitive deps (not auto-installed due to --no-deps):
+stringcase
+onnxsim
+rapidfuzz
+einops==0.3.2
+json-tricks==3.16.1
+treelib==1.6.1
+platformdirs
+qudida
+pandas
+seaborn
+scipy
+scikit-learn
+scikit-image
 tqdm
 
 # CLIP for image retrieval

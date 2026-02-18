@@ -103,7 +103,12 @@ class YoloPoseProcessor(BaseProcessor):
 
         # Run YOLO-NAS-Pose inference
         predictions = self.model.predict(frame_rgb, conf=self.confidence_threshold)
-        prediction = predictions[0].prediction
+        # super-gradients 3.7.x returns ImagePoseEstimationPrediction directly
+        # for a single image; older versions return a subscriptable list
+        if hasattr(predictions, 'prediction'):
+            prediction = predictions.prediction
+        else:
+            prediction = predictions[0].prediction
 
         # Extract detections: poses [N, 17, 3], bboxes [N, 4], scores [N]
         poses = prediction.poses         # (x, y, confidence) per joint

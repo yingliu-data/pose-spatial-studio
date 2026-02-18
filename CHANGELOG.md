@@ -4,9 +4,11 @@ All notable changes to the Pose Spatial Studio project will be documented in thi
 
 The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.0.0/).
 
-## [1.1.7] - 18 February 2026
+## [1.2.0] - 18 February 2026
 
 ### Added
+- Model selector dropdown: choose pose estimation model (MediaPipe, RTMPose) at stream creation and switch models live during an active stream without restarting
+- Backend `switch_model` WebSocket event for hot-swapping the pose processor while preserving the rest of the pipeline
 - YOLO-NAS-Pose processor: new `yolo3d` processor type using super-gradients for pose estimation with COCO 17 keypoints mapped to unified MediaPipe skeleton structure
 
 ## [1.1.6] - 18 February 2026

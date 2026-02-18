@@ -4,6 +4,17 @@ All notable changes to the Pose Spatial Studio project will be documented in thi
 
 The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.0.0/).
 
+## [1.2.2] - 18 February 2026
+
+### Fixed
+- Deploy workflows: install cmake, build-essential, protobuf-compiler for Python package builds
+- Pin onnx>=1.15.0, pycocotools>=2.0.7 for Python 3.12 wheel compatibility
+- Install super-gradients with --no-deps to resolve onnxruntime version conflict with rtmlib
+- Add all super-gradients transitive deps to requirements.txt (stringcase, onnxsim, rapidfuzz, pandas, etc.)
+- YOLO-NAS-Pose API compatibility with super-gradients 3.7.x (predict() return type change)
+- Pre-download YOLO model weights from NVIDIA S3 mirror (sghub.deci.ai defunct post-acquisition)
+- Add YOLO-NAS-Pose to frontend model selector dropdown
+
 ## [1.2.1] - 18 February 2026
 
 ### Fixed

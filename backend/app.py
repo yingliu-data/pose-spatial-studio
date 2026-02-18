@@ -49,7 +49,7 @@ async def lifespan(app: FastAPI):
 
 app = FastAPI(
     title="Pose Vision Studio API",
-    version="1.1.0",
+    version="1.2.2",
     description="Real-time 3D pose estimation and visualization",
     lifespan=lifespan
 )
@@ -75,7 +75,7 @@ websocket_handler = WebSocketHandler(sio)
 async def root():
     return {
         "message": "Pose Vision Studio API", 
-        "version": "1.1.0",
+        "version": "1.2.2",
         "status": "running"
     }
 
@@ -88,7 +88,7 @@ async def health_check():
 @app.get("/info")
 async def info():
     return {
-        "api_version": "1.1.0",
+        "api_version": "1.2.2",
         "features": [
             "Real-time 3D pose estimation",
             "Multi-stream support",

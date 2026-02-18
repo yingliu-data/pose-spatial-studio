@@ -52,4 +52,53 @@ export class StreamInitService {
         }, 60000); // Increased timeout to 60s for model loading
       });
     }
+
+    static async switchModel(
+      socket: Socket,
+      streamId: string,
+      processorType: string,
+      onProgress?: (message: string) => void
+    ): Promise<{ success: boolean; message: string; processorType?: string }> {
+      return new Promise((resolve) => {
+        const switchedHandler = (data: any) => {
+          if (data.stream_id === streamId) {
+            cleanup();
+            resolve({ success: true, message: data.message, processorType: data.processor_type });
+          }
+        };
+
+        const errorHandler = (data: any) => {
+          if (data.stream_id === streamId) {
+            cleanup();
+            resolve({ success: false, message: data.message });
+          }
+        };
+
+        const loadingHandler = (data: any) => {
+          if (data.stream_id === streamId && onProgress) {
+            onProgress(data.message || 'Switching model...');
+          }
+        };
+
+        const cleanup = () => {
+          socket.off('model_switched', switchedHandler);
+          socket.off('stream_error', errorHandler);
+          socket.off('stream_loading', loadingHandler);
+        };
+
+        socket.on('model_switched', switchedHandler);
+        socket.on('stream_error', errorHandler);
+        socket.on('stream_loading', loadingHandler);
+
+        socket.emit('switch_model', {
+          stream_id: streamId,
+          processor_type: processorType,
+        });
+
+        setTimeout(() => {
+          cleanup();
+          resolve({ success: false, message: 'Model switch timeout' });
+        }, 60000);
+      });
+    }
   }

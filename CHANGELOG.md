@@ -4,6 +4,13 @@ All notable changes to the Pose Spatial Studio project will be documented in thi
 
 The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.0.0/).
 
+## [1.2.1] - 18 February 2026
+
+### Fixed
+- App title mismatch: `index.html` said "Pose Vision Studio" instead of "Pose Spatial Studio"
+- Rewrite `pose-validation.spec.ts` with correct selectors matching current Controls.tsx UI
+- Install missing Playwright browsers (Firefox, WebKit) for cross-browser testing
+
 ## [1.2.0] - 18 February 2026
 
 ### Added

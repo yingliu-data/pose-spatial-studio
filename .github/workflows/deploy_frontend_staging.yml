@@ -61,7 +61,7 @@ jobs:
 
       - name: Deploy via rsync
         run: |
-          ssh vm-ssh "sudo mkdir -p /var/www/staging"
+          ssh vm-ssh "mkdir -p /var/www/staging"
           rsync -az --delete dist/ vm-ssh:/var/www/staging
 
       - name: Reload nginx

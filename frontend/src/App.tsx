@@ -8,6 +8,7 @@ import './App.css';
 export const AVAILABLE_MODELS = [
   { value: 'mediapipe', label: 'MediaPipe' },
   { value: 'rtmpose', label: 'RTMPose' },
+  { value: 'yolo3d', label: 'YOLO-NAS-Pose' },
 ] as const;
 
 export type ModelType = typeof AVAILABLE_MODELS[number]['value'];

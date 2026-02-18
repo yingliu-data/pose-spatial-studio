@@ -65,3 +65,9 @@ jobs:
       - name: Reload nginx
         run: |
           ssh vm-ssh "sudo systemctl reload nginx"
+
+      - name: Reset staging branch to main
+        if: github.ref == 'refs/heads/main'
+        run: |
+          git fetch origin
+          git push origin origin/main:refs/heads/staging --force

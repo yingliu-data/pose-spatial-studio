@@ -102,3 +102,9 @@ jobs:
 
             rm -rf /tmp/backend-staging
           ENDSSH
+
+      - name: Reset staging branch to main
+        if: github.ref == 'refs/heads/main'
+        run: |
+          git fetch origin
+          git push origin origin/main:refs/heads/staging --force

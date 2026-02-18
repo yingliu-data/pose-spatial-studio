@@ -4,6 +4,11 @@ All notable changes to the Pose Spatial Studio project will be documented in thi
 
 The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.0.0/).
 
+## [1.1.7] - 18 February 2026
+
+### Added
+- YOLO-NAS-Pose processor: new `yolo3d` processor type using super-gradients for pose estimation with COCO 17 keypoints mapped to unified MediaPipe skeleton structure
+
 ## [1.1.6] - 18 February 2026
 
 ### Performance

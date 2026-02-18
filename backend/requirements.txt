@@ -8,7 +8,7 @@ rtmlib>=0.0.14
 onnxruntime-gpu
 onnx>=1.15.0
 pycocotools>=2.0.7
-super-gradients>=3.7.0
+# super-gradients installed separately with --no-deps (pins onnxruntime==1.15.0 which conflicts with rtmlib)
 tqdm
 
 # CLIP for image retrieval

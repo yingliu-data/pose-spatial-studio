@@ -8,7 +8,7 @@ rtmlib>=0.0.14
 onnxruntime-gpu
 onnx>=1.15.0
 pycocotools>=2.0.7
-super-gradients
+super-gradients>=3.7.0
 tqdm
 
 # CLIP for image retrieval

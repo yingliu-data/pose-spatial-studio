@@ -72,9 +72,6 @@ jobs:
             echo "=== Installing build tools ==="
             docker exec $CONTAINER bash -c "apt-get update -qq && apt-get install -y -qq cmake build-essential protobuf-compiler python3-dev > /dev/null 2>&1"
 
-            echo "=== Pre-installing binary wheels ==="
-            docker exec $CONTAINER bash -c "pip install --break-system-packages --only-binary :all: onnx pycocotools -q"
-
             echo "=== Installing dependencies ==="
             docker exec $CONTAINER bash -c "cd /root/backend && pip install --break-system-packages -r requirements.txt -q"
 

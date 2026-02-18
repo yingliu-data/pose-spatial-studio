@@ -72,3 +72,8 @@ backend/models/**/*.pb
 
 # ---- LLM prompt ----
 LLMprompt.md
+
+# ---- Videos ----
+*.mp4
+*.mov
+*.avi

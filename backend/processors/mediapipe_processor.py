@@ -3,9 +3,9 @@ import mediapipe as mp
 import numpy as np
 from typing import Dict, Any, Optional, List
 import logging
+import threading
 from processors.base_processor import BaseProcessor
 import config
-import threading
 import subprocess
 import os
 
@@ -86,21 +86,24 @@ class MediaPipeProcessor(BaseProcessor):
         self.object_detector_frame_width = pose_processor_config['object_detector_frame_width']
         self.object_detector_frame_height = pose_processor_config['object_detector_frame_height']
         self.device = pose_processor_config.get('device', 'cpu')
+        self.source_type = pose_processor_config.get('source_type', 'camera')
         self.landmarker = None
         self.object_detector = None
-        self.latest_pose_result = None
-        self.latest_object_result = None
-        self.result_lock = threading.Lock()
         self.last_timestamp = 0
-    
+        # LIVE_STREAM mode (camera) needs callbacks and a lock for async results
+        if self.source_type == 'camera':
+            self.result_lock = threading.Lock()
+            self.latest_pose_result = None
+            self.latest_object_result = None
+
     def _pose_result_callback(self, result: mp.tasks.vision.PoseLandmarkerResult, output_image: mp.Image, timestamp_ms: int):
         with self.result_lock:
             self.latest_pose_result = result
-    
+
     def _detection_result_callback(self, result: mp.tasks.vision.ObjectDetectorResult, output_image: mp.Image, timestamp_ms: int):
         with self.result_lock:
             self.latest_object_result = result
-    
+
     def _get_delegate(self) -> 'mp.tasks.BaseOptions.Delegate':
         """Return GPU delegate if device is cuda, otherwise CPU."""
         if self.device == 'cuda':
@@ -111,36 +114,41 @@ class MediaPipeProcessor(BaseProcessor):
 
     def _try_initialize_with_delegate(self, delegate) -> bool:
         """Attempt to create MediaPipe tasks with the given delegate."""
-        VisionRunningMode = mp.tasks.vision.RunningMode.LIVE_STREAM
-
         if not os.path.exists(self.object_detector_model_path):
             model_url = MODEL_LINK.get(os.path.basename(self.object_detector_model_path))
             if model_url is None:
                 raise ValueError(f"No download URL found for model {self.object_detector_model_path}")
             subprocess.run(["wget", "-O", self.object_detector_model_path, model_url], check=True)
 
-        object_detector_options = mp.tasks.vision.ObjectDetectorOptions(
+        use_live = self.source_type == 'camera'
+        running_mode = mp.tasks.vision.RunningMode.LIVE_STREAM if use_live else mp.tasks.vision.RunningMode.VIDEO
+        logger.info(f"MediaPipe running mode: {running_mode.name} (source_type={self.source_type})")
+
+        od_kwargs = dict(
             base_options=mp.tasks.BaseOptions(
                 model_asset_path=self.object_detector_model_path,
                 delegate=delegate),
-            running_mode=VisionRunningMode,
-            max_results=5,
-            result_callback=self._detection_result_callback)
-        self.object_detector = mp.tasks.vision.ObjectDetector.create_from_options(object_detector_options)
+            running_mode=running_mode,
+            max_results=5)
+        if use_live:
+            od_kwargs['result_callback'] = self._detection_result_callback
+        self.object_detector = mp.tasks.vision.ObjectDetector.create_from_options(
+            mp.tasks.vision.ObjectDetectorOptions(**od_kwargs))
 
-        landmarker_options = mp.tasks.vision.PoseLandmarkerOptions(
+        lm_kwargs = dict(
             base_options=mp.tasks.BaseOptions(
                 model_asset_path=self.pose_landmarker_model_path,
                 delegate=delegate),
-            running_mode=VisionRunningMode,
+            running_mode=running_mode,
             num_poses=self.num_poses,
             min_pose_detection_confidence=self.min_detection_confidence,
             min_pose_presence_confidence=self.min_presence_confidence,
             min_tracking_confidence=self.min_tracking_confidence,
-            output_segmentation_masks=False,
-            result_callback=self._pose_result_callback
-        )
-        self.landmarker = mp.tasks.vision.PoseLandmarker.create_from_options(landmarker_options)
+            output_segmentation_masks=False)
+        if use_live:
+            lm_kwargs['result_callback'] = self._pose_result_callback
+        self.landmarker = mp.tasks.vision.PoseLandmarker.create_from_options(
+            mp.tasks.vision.PoseLandmarkerOptions(**lm_kwargs))
         return True
 
     def initialize(self) -> bool:
@@ -190,12 +198,17 @@ class MediaPipeProcessor(BaseProcessor):
         mp_pose_image = self._mp_image_from_frame(frame, self.pose_landmarker_frame_width, self.pose_landmarker_frame_height)
         mp_object_image = self._mp_image_from_frame(frame, self.object_detector_frame_width, self.object_detector_frame_height)
 
-        self.landmarker.detect_async(mp_pose_image, timestamp_ms)
-        self.object_detector.detect_async(mp_object_image, timestamp_ms)
-        
-        with self.result_lock:
-            pose_result = self.latest_pose_result
-            object_result = self.latest_object_result
+        if self.source_type == 'camera':
+            # LIVE_STREAM: async detection, read previous result
+            self.landmarker.detect_async(mp_pose_image, timestamp_ms)
+            self.object_detector.detect_async(mp_object_image, timestamp_ms)
+            with self.result_lock:
+                pose_result = self.latest_pose_result
+                object_result = self.latest_object_result
+        else:
+            # VIDEO: synchronous detection, returns current frame result
+            pose_result = self.landmarker.detect_for_video(mp_pose_image, timestamp_ms)
+            object_result = self.object_detector.detect_for_video(mp_object_image, timestamp_ms)
         
         landmarks, world_landmarks = [], []
         
@@ -308,9 +321,10 @@ class MediaPipeProcessor(BaseProcessor):
         if self.object_detector:
             self.object_detector.close()
             self.object_detector = None
-        with self.result_lock:
-            self.latest_pose_result = None
-            self.latest_object_result = None
+        if self.source_type == 'camera':
+            with self.result_lock:
+                self.latest_pose_result = None
+                self.latest_object_result = None
         self._is_initialized = False
         logger.info(f"MediaPipe processor {self.processor_id} cleaned up")
 

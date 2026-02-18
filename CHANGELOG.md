@@ -4,6 +4,11 @@ All notable changes to the Pose Spatial Studio project will be documented in thi
 
 The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.0.0/).
 
+## [1.1.6] - 18 February 2026
+
+### Performance
+- Multi-stream MediaPipe concurrency: dynamic thread pool sizing (POSE_WORKERS), BLAS thread pinning, dual running mode (LIVE_STREAM for camera, VIDEO for video), per-stream timing metrics on /health
+
 ## [1.1.5] - 17 February 2026
 
 ### Fixed

@@ -86,13 +86,16 @@ pose-spatial-studio/
 
 **config.py** - Centralized settings with env var support:
 - `POSE_STUDIO_HOST` (default `0.0.0.0`), `POSE_STUDIO_PORT` (default `49101`)
+- `POSE_WORKERS` — thread pool size for concurrent stream processing (default `min(cpu_count, 16)`, tunable via env var)
+- BLAS thread pinning (`OMP_NUM_THREADS=1`, `MKL_NUM_THREADS=1`, `OPENBLAS_NUM_THREADS=1`) to prevent per-operation thread explosion
 - CORS origins: `localhost:8585`, `robot.yingliu.site`
 - MediaPipe params, FPS, JPEG quality, max streams
 
 **websocket_handler.py** - Manages:
 - Client connections/disconnections
-- Stream initialization with processor pipeline
-- Frame routing through processors
+- Stream initialization with processor pipeline (injects `source_type` into processor config)
+- Concurrent frame processing via `ThreadPoolExecutor(max_workers=POSE_WORKERS)`
+- Per-stream timing metrics exposed on `/health`
 - Result emission
 - Processor cleanup
 
@@ -103,7 +106,7 @@ pose-spatial-studio/
 
 **image_processor.py** - Preprocessing stage (filters, transforms, adjustments)
 
-**mediapipe_processor.py** - Pose estimation (2D/3D landmarks, skeleton overlay)
+**mediapipe_processor.py** - Pose estimation (2D/3D landmarks, skeleton overlay). Dual running mode: `LIVE_STREAM` (async callbacks) for camera, `VIDEO` (synchronous, no frame delay) for video uploads
 
 ### Frontend
 
@@ -193,7 +196,7 @@ VM1 (Frontend Edge)          VM2 (GPU Backend)
 
 | Event | Payload |
 |-------|---------|
-| `initialize_stream` | `{ stream_id, processor_type, processor_config }` |
+| `initialize_stream` | `{ stream_id, processor_type, processor_config, source_type }` |
 | `process_frame` | `{ stream_id, frame (base64), timestamp_ms }` |
 | `cleanup_processor` | `{ stream_id }` |
 

@@ -93,7 +93,8 @@ export function Controls({
         formData.processorConfig,
         (message: string) => {
           setLoadingMessage(message);
-        }
+        },
+        formData.sourceType
       );
 
       if (!result.success) {

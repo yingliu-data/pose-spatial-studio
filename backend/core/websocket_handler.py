@@ -1,6 +1,7 @@
 import asyncio
 import logging
 import json
+import time
 from concurrent.futures import ThreadPoolExecutor
 
 import cv2
@@ -12,7 +13,7 @@ from processors.rtmpose_processor import RTMPoseProcessor
 from processors.image_processor import ImageProcessor
 from processors.base_processor import BaseProcessor
 from processors.data_processor import DataProcessor
-from config import DEFAULT_CONFIG
+from config import DEFAULT_CONFIG, POSE_WORKERS
 
 logger = logging.getLogger(__name__)
 
@@ -20,10 +21,13 @@ class WebSocketHandler:
     def __init__(self, sio):
         self.sio = sio
         self.processors: Dict[str, Dict[str, BaseProcessor]] = {}
-        self._executor = ThreadPoolExecutor(max_workers=4, thread_name_prefix="pose-worker")
+        self._executor = ThreadPoolExecutor(max_workers=POSE_WORKERS, thread_name_prefix="pose-worker")
         # Per-stream latest frame buffer: only the newest frame is kept
         self._latest_frames: Dict[str, Tuple] = {}  # processor_id -> (frame, timestamp, sid, stream_id)
         self._active_streams: set = set()  # processor_ids currently being processed
+        self._stream_metrics: Dict[str, Dict[str, Any]] = {}
+        self._last_stats_log: float = 0
+        logger.info(f"Thread pool initialized with {POSE_WORKERS} workers")
         self.setup_handlers()
     
     def setup_handlers(self):
@@ -47,8 +51,13 @@ class WebSocketHandler:
         async def initialize_stream(sid, data):
             try:
                 stream_id = data.get('stream_id')
+                source_type = data.get('source_type', 'camera')
                 processor_config = data.get('processor_config') or DEFAULT_CONFIG
-                
+
+                # Inject source_type into pose processor config
+                if 'pose_processor' in processor_config:
+                    processor_config['pose_processor']['source_type'] = source_type
+
                 # Determine processor type from config
                 pose_config = processor_config.get('pose_processor', {})
                 processor_type = pose_config.get('processor_type', 'mediapipe')
@@ -200,7 +209,7 @@ class WebSocketHandler:
                 processed_frame, pose_data = await loop.run_in_executor(
                     self._executor,
                     self._run_pipeline_sync,
-                    processor_pipeline, frame, timestamp
+                    processor_pipeline, frame, timestamp, processor_id
                 )
 
                 _, buffer = cv2.imencode('.jpg', processed_frame, [cv2.IMWRITE_JPEG_QUALITY, 100])
@@ -222,13 +231,23 @@ class WebSocketHandler:
 
                 await self.sio.emit('pose_result', emit_payload, room=sid)
                 logger.debug(f"[FRAME] Emitted pose_result for {stream_id}")
+
+                now = time.monotonic()
+                if now - self._last_stats_log > 30:
+                    self._last_stats_log = now
+                    logger.info(
+                        f"[STATS] streams={len(self.processors)} "
+                        f"processing={len(self._active_streams)} "
+                        f"pending={len(self._latest_frames)}"
+                    )
         except Exception as e:
             logger.error(f"Error in _process_latest_frame: {e}", exc_info=True)
         finally:
             self._active_streams.discard(processor_id)
 
-    def _run_pipeline_sync(self, processor_pipeline, frame, timestamp):
+    def _run_pipeline_sync(self, processor_pipeline, frame, timestamp, processor_id=None):
         """Run the processor pipeline synchronously. Called from thread pool."""
+        t0 = time.perf_counter()
         pose_data = None
         processed_frame = frame
 
@@ -246,6 +265,13 @@ class WebSocketHandler:
                 processed_frame = result['processed_frame']
                 pose_data = result['data']
             logger.debug(f"[FRAME] pose_processor done, pose_data={'present' if pose_data else 'None'}")
+
+        elapsed_ms = (time.perf_counter() - t0) * 1000
+        if processor_id:
+            self._stream_metrics[processor_id] = {
+                "last_process_ms": round(elapsed_ms, 1),
+                "timestamp": timestamp,
+            }
 
         return processed_frame, pose_data
 
@@ -275,6 +301,7 @@ class WebSocketHandler:
     def cleanup_processor(self, processor_id: str):
         self._latest_frames.pop(processor_id, None)
         self._active_streams.discard(processor_id)
+        self._stream_metrics.pop(processor_id, None)
         if processor_id in self.processors:
             logger.debug(f"[CLEANUP] Cleaning up processor: {processor_id}")
             for processor in self.processors[processor_id]:
@@ -293,6 +320,12 @@ class WebSocketHandler:
     def get_stats(self) -> Dict[str, Any]:
         return {
             "active_processors": len(self.processors),
-            "processor_ids": list(self.processors.keys())
+            "processor_ids": list(self.processors.keys()),
+            "active_streams_processing": len(self._active_streams),
+            "pending_frames": len(self._latest_frames),
+            "thread_pool": {
+                "max_workers": self._executor._max_workers,
+            },
+            "stream_metrics": dict(self._stream_metrics),
         }
 

@@ -4,6 +4,12 @@ All notable changes to the Pose Spatial Studio project will be documented in thi
 
 The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.0.0/).
 
+## [1.3.3] - 19 February 2026
+
+### Fixed
+- YOLO+TCPFormer initialization failure: replace super_gradients (dependency conflicts with rtmlib) with ultralytics YOLOv8-Pose
+- Remove standalone YOLO-NAS-Pose (`yolo3d`) model; consolidate to single YOLO+TCPFormer pipeline
+
 ## [1.3.2] - 19 February 2026
 
 ### Fixed

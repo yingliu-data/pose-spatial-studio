@@ -30,6 +30,7 @@ Determine what code is under review:
 
 1. **Diff the changes** against the base branch:
    ```bash
+
    git diff main...HEAD --stat
    git diff main...HEAD
    ```

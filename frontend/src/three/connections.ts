@@ -2,6 +2,8 @@ import { UnifiedJointName } from '@/types/pose';
 
 export const POSE_CONNECTIONS: [UnifiedJointName, UnifiedJointName][] = [
   ['hipCentre', 'neck'],
+  ['neck', 'leftEye'],
+  ['neck', 'rightEye'],
   ['neck', 'rightShoulder'],
   ['rightShoulder', 'rightElbow'],
   ['rightElbow', 'rightWrist'],

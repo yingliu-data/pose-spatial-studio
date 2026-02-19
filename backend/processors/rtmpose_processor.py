@@ -2,6 +2,7 @@ from rtmlib import Wholebody3d, draw_skeleton
 from typing import Optional, List, Dict, Any
 from processors.base_processor import BaseProcessor
 from utils.kinetic import Converter
+from utils.filters import MedianFilter
 import logging
 import numpy as np
 
@@ -62,6 +63,7 @@ class RTMPoseProcessor(BaseProcessor):
             backend=self.backend,
             device=self.device
         )
+        self._z_root_filter = MedianFilter(window_size=5)
         logger.info(f"RTMpose 3D processor {self.processor_id} initialized")
         return True
 
@@ -159,9 +161,11 @@ class RTMPoseProcessor(BaseProcessor):
         """Build 3D world landmarks combining 2D image-space x,y with 3D z.
 
         Uses keypoints_2d (inverse-affine-transformed to image space by rtmlib)
-        for x,y, then applies approximate perspective unprojection to convert
-        to meters consistent with the z-axis. z comes from keypoints_3d
-        (already corrected for rtmlib's codec mismatch).
+        for x,y with per-joint depth-corrected perspective unprojection.
+        Each joint's absolute depth (z_root + z_relative) is used instead of
+        a constant z_root, producing consistent 3D positions for accurate
+        FK bone direction computation. z comes from keypoints_3d (already
+        corrected for rtmlib's codec mismatch).
         """
         f_est = float(max(w, h))  # estimated focal length (~53° VFOV)
 
@@ -177,12 +181,14 @@ class RTMPoseProcessor(BaseProcessor):
             else:
                 z_root = 3.0
 
+            # Smooth z_root across frames to reduce scale jitter
+            z_root = float(self._z_root_filter.filter(np.array([z_root]))[0])
+
             # Person center in image space (average of hip keypoints)
             hip_indices = [11, 12]
             valid_hips = [i for i in hip_indices if i < len(person_2d)]
             cx = float(np.mean([person_2d[i][0] for i in valid_hips]))
             cy = float(np.mean([person_2d[i][1] for i in valid_hips]))
-            xy_scale = z_root / f_est  # meters per image pixel
 
             landmark_dict = {}
             for joint_name, indices in COCO133_TO_OUTPUT_JOINTS.items():
@@ -193,10 +199,21 @@ class RTMPoseProcessor(BaseProcessor):
                         "visibility": 0.0, "presence": 0.0
                     }
                     continue
+
+                # Per-joint depth-corrected perspective unprojection:
+                # use each joint's absolute depth instead of constant z_root
+                xs, ys, zs = [], [], []
+                for i in valid:
+                    z_rel = person_3d[i][2]
+                    z_abs = max(z_root + z_rel, 0.5)
+                    xs.append((person_2d[i][0] - cx) * z_abs / f_est)
+                    ys.append((person_2d[i][1] - cy) * z_abs / f_est)
+                    zs.append(z_rel)
+
                 landmark_dict[joint_name] = {
-                    "x": float(np.mean([(person_2d[i][0] - cx) * xy_scale for i in valid])),
-                    "y": float(np.mean([(person_2d[i][1] - cy) * xy_scale for i in valid])),
-                    "z": float(np.mean([person_3d[i][2] for i in valid])),
+                    "x": float(np.mean(xs)),
+                    "y": float(np.mean(ys)),
+                    "z": float(np.mean(zs)),
                     "visibility": float(np.mean([person_scores[i] for i in valid])),
                     "presence": float(np.mean([person_scores[i] for i in valid])),
                 }

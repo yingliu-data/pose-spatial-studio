@@ -4,6 +4,14 @@ All notable changes to the Pose Spatial Studio project will be documented in thi
 
 The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.0.0/).
 
+## [1.3.1] - 19 February 2026
+
+### Fixed
+- Avatar stuck in T-pose: bone name mismatch (`mixamorig:Hips` vs `mixamorigHips`) caused all bone lookups to fail silently
+- Avatar not initializing: `useEffect` fired before R3F reconciler assigned group ref; rewrote with `useFrame` lazy initialization
+- FK data silently dropped: `kinetic.py` returned non-serializable Python `set` on insufficient joints, failing JSON serialization
+- Deploy workflow: TCPFormer variables defined inside unquoted SSH heredoc expanded to empty strings
+
 ## [1.3.0] - 19 February 2026
 
 ### Added

@@ -35,6 +35,8 @@ termcolor
 werkzeug
 jsonschema
 matplotlib
+requests
+imagesize
 
 # CLIP for image retrieval
 git+https://github.com/openai/CLIP.git

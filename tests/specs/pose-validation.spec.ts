@@ -71,12 +71,18 @@ test.describe('Pose Capture and Avatar Validation', () => {
     const modelSelect = page.locator('.add-form select').nth(1);
     await expect(modelSelect).toBeVisible();
 
-    // Verify model select has mediapipe and rtmpose options
-    await expect(modelSelect.locator('option')).toHaveCount(2);
-    await modelSelect.selectOption('rtmpose');
-    await expect(modelSelect).toHaveValue('rtmpose');
+    // Verify model select has expected model options (mediapipe, rtmpose, yolo3d, yolo_tcpformer)
+    const options = modelSelect.locator('option');
+    const count = await options.count();
+    expect(count).toBeGreaterThanOrEqual(4);
     await modelSelect.selectOption('mediapipe');
     await expect(modelSelect).toHaveValue('mediapipe');
+    await modelSelect.selectOption('rtmpose');
+    await expect(modelSelect).toHaveValue('rtmpose');
+    await modelSelect.selectOption('yolo3d');
+    await expect(modelSelect).toHaveValue('yolo3d');
+    await modelSelect.selectOption('yolo_tcpformer');
+    await expect(modelSelect).toHaveValue('yolo_tcpformer');
   });
 
   test('should switch to video file input when source type is Video', async ({ page }) => {

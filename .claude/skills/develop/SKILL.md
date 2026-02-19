@@ -90,7 +90,7 @@ When a ticket depends on another ticket still in code review, branch from that t
 
 ## Step 3: Implement Changes
 
-**Current default model**: MediaPipe (with GPU delegate). The backend processor is `processors/mediapipe_processor.py`. Alternative processors: RTMPose3D at `processors/rtmpose_processor.py`, YOLO-NAS-Pose at `processors/yolo_pose_processor.py` (config `processor_type: "yolo3d"`). Users can select the model from a dropdown in the stream creation form or switch models live via the overlay on the stream viewer. Available models are defined in `AVAILABLE_MODELS` in `frontend/src/App.tsx`.
+**Current default model**: MediaPipe (with GPU delegate). The backend processor is `processors/mediapipe_processor.py`. Alternative processors: RTMPose3D at `processors/rtmpose_processor.py`, YOLO-NAS-Pose at `processors/yolo_pose_processor.py` (config `processor_type: "yolo3d"`), YOLO+TCPFormer at `processors/yolo_tcpformer_processor.py` (config `processor_type: "yolo_tcpformer"`). Users can select the model from a dropdown in the stream creation form or switch models live via the overlay on the stream viewer. Available models are defined in `AVAILABLE_MODELS` in `frontend/src/App.tsx`.
 
 Follow these guidelines during implementation:
 
@@ -126,6 +126,22 @@ cd backend && python -m py_compile app.py
 ## Step 4: Validate
 
 **IMPORTANT: Steps 4A, 4C, and 4D are ALL compulsory. You MUST run all three before proceeding to Step 5. Do NOT skip any of them.** Failure to run all three validation steps is a workflow violation.
+
+
+test process
+in Frontend, `Add Stream` -> `Stream ID` = "test" -> `Source Type` = "Video File" ->
+- `Pose Model` = MediaPipe
+- `Pose Model` = RTMPose
+- `Pose Model` = YOLO + TCPFORMER
+-> `Video File` = "tests/test.mp4" -> `Create & Start Stream` ->
+**check if stream initiated** 
+->`Play` -> 
+- **check if avatar is showing**
+- **check if camera feed has human inside**
+- **check if there is a drawing 2d skeleton on the human image in camera feed**
+- **In `Skeleton` mode, check if the 3d skeleton is a reasonable human body shape and teh skeleton is moving normally**
+- **In `Avatar` mode, check if the avatar has head above hip. if the arms is in front fo the body, if legs are below the hip.**
+-> `Pause` -> switch model in the stream window to another one. -> `play` -> Check again
 
 ### 4A: Automated testing (compulsory — MUST RUN)
 

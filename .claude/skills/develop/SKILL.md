@@ -125,7 +125,8 @@ cd backend && python -m py_compile app.py
 
 ## Step 4: Validate
 
-follow test/SKILL.md to run test
+follow test/SKILL.md to run test.
+ask user for approval to continue with step 5
 
 ## Step 5: Update Documentation
 
@@ -143,8 +144,8 @@ Add an entry to the appropriate `CHANGELOG.md` file:
 
 If the version section doesn't exist, create it at the top of the file.
 
-### 2. `.claude/PROJECT_STRUCTURE.md`
-If the changes affect project architecture (new files, moved directories, new processors), update `.claude/PROJECT_STRUCTURE.md` accordingly.
+### 2. PROJECT_STRUCTURE.md
+If the changes affect project architecture (new files, moved directories, new processors), update `PROJECT_STRUCTURE.md` accordingly.
 
 ### 3. README.md
 If the changes affect setup, usage, or dependencies, update the relevant `README.md` file.
@@ -153,7 +154,7 @@ If the changes affect setup, usage, or dependencies, update the relevant `README
 Mark all completed tasks in your TODO list as `completed` using `TodoWrite`.
 
 ### 5. Skill update
-Update SKILL.md files in `.claude/skills/` based on the progress in the session, so skills adapt to the user's development workflow.
+Update 'SKILL.md' files based on the progress in the session, so skills adapt to the user's development workflow.
 
 ---
 

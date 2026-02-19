@@ -66,7 +66,7 @@ If tests fail, diagnose and fix before continuing.
 
 ## Step 2: Manual testing (ask for permission to go to step 3)
 
-Use when automated tests are insufficient or you need additional verification.
+Use when automated tests are insufficient or you need additional verification. need user's confirmation to continue with next step
 
 1. **Start dev environment** (if not already running):
    - Backend: `cd backend && ./run_server.sh` (port 49101)
@@ -92,7 +92,7 @@ Use when automated tests are insufficient or you need additional verification.
 
 ---
 
-## Step 3: Staging environment testing (ask for permission to go to step 4)
+## Step 3: Staging environment testing
 
 Validate changes against the staging backend before production deployment.
 
@@ -119,7 +119,7 @@ Validate changes against the staging backend before production deployment.
    - **Add Stream** → Stream ID = `test` → Source Type = **Video File** → upload `tests/test.mp4`
    - Test each pose model: **MediaPipe**, **RTMPose**, **YOLO + TCPFormer**
    - Click **Create & Start Stream** → verify stream initiates → click **Play**
-6. **Or** run the automated staging test:
+6.  run the automated staging test:
    ```bash
    cd frontend && VITE_BACKEND_URL=https://pose-backend-staging.yingliu.site npm run dev &
    cd tests && npx playwright test specs/staging-video-test.spec.ts --config=playwright.staging.config.ts --project=chromium
@@ -133,11 +133,10 @@ Validate changes against the staging backend before production deployment.
    ```bash
    ssh pose-backend "docker exec pose-spatial-studio-backend-staging tail -30 /root/backend/logs/app.log"
    ```
-9. If passed → create PR from `staging` to `main` for production deployment
 
 ---
 
-## Step 4: Remote GPU validation (compulsory)
+## Step 4: Remote GPU validation (compulsory) need user's confirmation to continue with next step
 
 Verify the staging backend is healthy and GPU-accessible. This applies to **all changes** because the backend always runs on GPU infrastructure.
 
@@ -170,6 +169,7 @@ See `/ssh-servers` skill for full remote debugging commands.
 Before marking validation as complete, confirm ALL of the following:
 
 - [ ] **Step 1** — Automated Playwright tests passed
+- [ ] **Step 2** 
 - [ ] **Step 3** — Staging environment tested (deployed, health check OK, pose detection works)
 - [ ] **Step 4** — Remote GPU validation passed (health check + logs reviewed)
 - [ ] Implementation meets all acceptance criteria

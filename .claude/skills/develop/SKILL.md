@@ -14,16 +14,18 @@ Mark each task as `in_progress` when starting work on it, and `completed` immedi
 
 ## Workflow Overview
 
-| Step | Action | Notes |
-|------|--------|-------|
-| 1 | **Understand** | Analyze requirements, define acceptance criteria |
-| 2 | **Branch** | Create a properly named branch from the correct base |
-| 3 | **Implement** | Make changes following code conventions and lint standards |
-| 4 | **Validate** | Run all test steps — **ALL sub-steps are compulsory** |
-| 5 | **Document** | Update CHANGELOG.md, PROJECT_STRUCTURE.md, README.md |
-| 6 | **Review** | Optionally run a developer code review |
-| 7 | **Commit** | Stage files and commit with conventional message format |
-| 8 | **Push & PR** | Push branch and create pull request |
+**CRITICAL: Steps 1–5 are MANDATORY and BLOCKING. You MUST complete each step before proceeding to the next. Do NOT skip Steps 4 or 5.**
+
+| Step | Action | Mandatory | Notes |
+|------|--------|-----------|-------|
+| 1 | **Understand** | YES | Analyze requirements, define acceptance criteria |
+| 2 | **Branch** | YES | Create a properly named branch from the correct base |
+| 3 | **Implement** | YES | Make changes following code conventions and lint standards |
+| 4 | **Validate** | **YES — BLOCKING** | Run ALL test steps in test/SKILL.md — NO exceptions |
+| 5 | **Document** | **YES — BLOCKING** | Update CHANGELOG.md, PROJECT_STRUCTURE.md, README.md |
+| 6 | **Review** | Optional | Optionally run a developer code review |
+| 7 | **Commit** | YES | Stage files and commit with conventional message format |
+| 8 | **Push & PR** | YES | Push branch and create pull request |
 
 ---
 
@@ -103,6 +105,7 @@ Follow these guidelines during implementation:
 4. **Test as you go** — Validate changes incrementally to catch issues early
 5. **Optimize complexity** — Analyze and improve Big O time/space complexity where possible
 6. **Lint check** — Run linters after implementation (see below)
+7. **Deployment requiremnt** - Update deployment pipeline if there are dependancies
 
 ### Frontend lint
 
@@ -125,9 +128,12 @@ cd backend && python -m py_compile app.py
 
 ## Step 4: Validate
 
-> **MANDATORY — Read and follow [.claude/skills/test/SKILL.md](.claude/skills/test/SKILL.md) in full before continuing to Step 5.**
+> **MANDATORY — BLOCKING STEP — DO NOT SKIP**
 >
-> Do NOT skip, abbreviate, or reorder any sub-step. The test skill defines four compulsory steps plus user-approval gates — all must be completed.
+> You MUST read and execute EVERY sub-step defined in [.claude/skills/test/SKILL.md](.claude/skills/test/SKILL.md) before proceeding to Step 5.
+> **This is NOT optional.** Do NOT skip, abbreviate, summarize, or reorder any sub-step.
+> The test skill defines four compulsory steps plus user-approval gates — ALL must be completed.
+> **If you skip this step or any sub-step, the entire workflow is invalid.**
 
 Execute the test skill steps in order:
 
@@ -135,17 +141,21 @@ Execute the test skill steps in order:
 |-----------|-----------|------|
 | **Step 0** Pre-flight | Kill all servers; verify ports 49101 and 8585 are free | — |
 | **Step 1** Automated E2E | Run `cd tests && npm test`; verify screenshots in `tests/results/` | — |
-| **Step 2** Manual testing | Start dev servers; test video file and camera with all three pose models | **Ask user for approval before continuing to Step 3** |
-| **Step 3** Staging | Commit → PR to `staging` → wait for CI deploy → health check → run staging tests | — |
-| **Step 4** Remote GPU | SSH health check + tail logs on staging and production backends | **Ask user for approval before continuing to Step 5** |
+| **Step 2** Manual testing | Start dev servers; test video file and camera with all three pose models | **STOP — Ask user for approval before continuing to Step 3** |
+| **Step 3** Staging | Commit → PR to `staging` → wait for CI deploy → health check → run staging tests | **STOP — Ask user for approval before continuing to Step 4** |
+| **Step 4** Remote GPU | SSH health check + tail logs on staging and production backends | — |
 
-After all steps pass and the user approves, return here and continue to Step 5.
+**After ALL test steps pass and the user explicitly approves at each gate**, return here and continue to Step 5. Do NOT proceed to Step 5 without completing every test step.
 
 ---
 
 ## Step 5: Update Documentation
 
-Update the following files as needed:
+> **MANDATORY — BLOCKING STEP — DO NOT SKIP**
+>
+> You MUST update all applicable documentation files listed below before proceeding to Step 6.
+> **This is NOT optional.** Do NOT skip this step. Do NOT proceed to commit without completing documentation updates.
+> For each file below, either update it OR explicitly state to the user why no update is needed.
 
 ### 1. [CHANGELOG.md](CHANGELOG.md)
 
@@ -259,9 +269,9 @@ Before creating the pull request, verify **every item**:
 - [ ] All TODO tasks are marked as `completed`
 - [ ] **Test Step 0** — Stale servers killed, ports verified free
 - [ ] **Test Step 1** — Playwright E2E tests passed; screenshots reviewed
-- [ ] **Test Step 2** — Manual testing completed; user approved
-- [ ] **Test Step 3** — Staging deployed, health check OK, staging tests passed
-- [ ] **Test Step 4** — Remote GPU health check and logs reviewed; user approved
+- [ ] **Test Step 2** — Manual testing completed; user approved to proceed
+- [ ] **Test Step 3** — Staging deployed, health check OK, staging tests passed; user approved to proceed
+- [ ] **Test Step 4** — Remote GPU health check and logs reviewed
 - [ ] Lint checks pass (`tsc --noEmit`, `py_compile`)
 - [ ] Commit messages follow `type: description` format
 - [ ] Branch name follows `type/brief-description` convention

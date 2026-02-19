@@ -15,6 +15,7 @@ pose-spatial-studio/
 │   │   ├── base_processor.py         # Abstract processor interface
 │   │   ├── image_processor.py        # Frame preprocessing
 │   │   ├── mediapipe_processor.py    # Pose estimation (2D/3D landmarks)
+│   │   ├── rtmpose_processor.py      # RTMPose3D via rtmlib (RTMW3D-X + YOLOX-M)
 │   │   └── yolo_tcpformer_processor.py # YOLOv8-Pose 2D + TCPFormer 3D lifting (81-frame temporal)
 │   ├── utils/
 │   │   ├── cache.py                  # Caching utilities
@@ -58,7 +59,8 @@ pose-spatial-studio/
 │   └── run_ui.sh                     # Local dev startup script
 │
 ├── .github/workflows/
-│   ├── deploy_backend.yml            # CI/CD: rsync → docker cp → restart in container
+│   ├── deploy_backend.yml            # CI/CD: rsync → docker cp → restart in container (main)
+│   ├── deploy_backend_staging.yml    # CI/CD: same as above for staging container (staging)
 │   └── deploy_frontend.yml           # CI/CD: build → rsync → nginx reload
 │
 ├── .claude/

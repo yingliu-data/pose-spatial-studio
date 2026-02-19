@@ -257,7 +257,10 @@ See [.claude/skills/develop/SKILL.md](./.claude/skills/develop/SKILL.md) for det
 - **Python 3.13** - Runtime
 - **FastAPI** - Web framework
 - **Socket.IO** - Real-time communication
-- **MediaPipe** - Pose estimation
+- **MediaPipe** - Pose estimation (default model)
+- **rtmlib** - RTMPose3D pose estimation (RTMW3D-X + YOLOX-M)
+- **Ultralytics** - YOLOv8-Pose 2D detection
+- **PyTorch** - TCPFormer 2D→3D temporal lifting
 - **OpenCV** - Image processing
 - **NumPy** - Numerical operations
 

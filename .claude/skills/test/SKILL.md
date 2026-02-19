@@ -4,10 +4,11 @@ name: test
 
 Run the validation suite for **$ARGUMENTS** (or full validation if no arguments given).
 
-Execute steps in order. Steps 1, 3, and 4 are **compulsory** — do NOT skip them.
+Execute steps in order. Steps 1, 2, 3, and 4 are **compulsory** — do NOT skip them.
 
 **IMPORTANT — run from the correct project:** All tests MUST run from the **working project directory** (the project with your code changes), NOT from wherever this SKILL.md lives. If you have multiple project copies (e.g., `pose-spatial-studio` and `pose-spatial-studio-1`), always `cd` into the one with your active feature branch before running any commands.
 
+**IMPORTANT — Do not make any changes in Staging and produc server from local project. It can only be done through GitHub CI/CD pipeline**
 ---
 
 ## Step 0: Pre-flight checks (compulsory)
@@ -63,7 +64,7 @@ If tests fail, diagnose and fix before continuing.
 
 ---
 
-## Step 2: Manual testing (optional)
+## Step 2: Manual testing (ask for permission to go to step 3)
 
 Use when automated tests are insufficient or you need additional verification.
 
@@ -91,7 +92,7 @@ Use when automated tests are insufficient or you need additional verification.
 
 ---
 
-## Step 3: Staging environment testing (compulsory)
+## Step 3: Staging environment testing (ask for permission to go to step 4)
 
 Validate changes against the staging backend before production deployment.
 
@@ -102,13 +103,13 @@ Validate changes against the staging backend before production deployment.
 
 **Workflow:**
 
-1. Commit changes and create/merge PR to `staging` branch
+1. Commit changes and create/merge PR to `staging` branch and approve merge
 2. Wait for the **Deploy backend (staging)** GitHub Actions workflow to pass
 3. Health check:
    ```bash
    curl -s https://pose-backend-staging.yingliu.site/health
    ```
-4. Run frontend locally against staging backend:
+4. Run frontend locally against staging backend and wait for user approval:
    ```bash
    cd frontend && VITE_BACKEND_URL=https://pose-backend-staging.yingliu.site npm run dev
    ```

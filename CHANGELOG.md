@@ -8,7 +8,13 @@ The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.0.0/).
 
 ### Fixed
 - YOLO+TCPFormer initialization failure: replace super_gradients (dependency conflicts with rtmlib) with ultralytics YOLOv8-Pose
+- TCPFormer checkpoint loading: strip DataParallel `module.` prefix so weights actually load (was silently matching 0/2411 parameters)
+- TCPFormer output scale: output is already in meters, remove erroneous /1000 division that collapsed skeleton to a single dot
+- Face skeleton not rendering: add `leftEye`/`rightEye` to unified joint schema and neck-to-eye connections
+- Both eyes at same position: derive separate eye positions from 2D COCO keypoints with 3D head depth instead of mapping both to H36M joint 9
 - Remove standalone YOLO-NAS-Pose (`yolo3d`) model; consolidate to single YOLO+TCPFormer pipeline
+- CI/CD: fix rsync exclude to deploy `models/tcpformer/model.py` (was excluding entire `models/` directory)
+- CI/CD: remove super_gradients installation and YOLO-NAS-Pose weight download from deploy workflows
 
 ## [1.3.2] - 19 February 2026
 

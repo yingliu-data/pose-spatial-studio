@@ -71,10 +71,12 @@ test.describe('Pose Capture and Avatar Validation', () => {
     const modelSelect = page.locator('.add-form select').nth(1);
     await expect(modelSelect).toBeVisible();
 
-    // Verify model select has mediapipe and rtmpose options
-    await expect(modelSelect.locator('option')).toHaveCount(2);
+    // Verify model select has mediapipe, rtmpose, and yolo options
+    await expect(modelSelect.locator('option')).toHaveCount(3);
     await modelSelect.selectOption('rtmpose');
     await expect(modelSelect).toHaveValue('rtmpose');
+    await modelSelect.selectOption('yolo3d');
+    await expect(modelSelect).toHaveValue('yolo3d');
     await modelSelect.selectOption('mediapipe');
     await expect(modelSelect).toHaveValue('mediapipe');
   });

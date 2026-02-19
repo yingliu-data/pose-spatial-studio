@@ -15,8 +15,7 @@ pose-spatial-studio/
 │   │   ├── base_processor.py         # Abstract processor interface
 │   │   ├── image_processor.py        # Frame preprocessing
 │   │   ├── mediapipe_processor.py    # Pose estimation (2D/3D landmarks)
-│   │   ├── yolo_pose_processor.py    # YOLO-NAS-Pose estimation (COCO 17 keypoints)
-│   │   └── yolo_tcpformer_processor.py # YOLO 2D + TCPFormer 3D lifting (81-frame temporal)
+│   │   └── yolo_tcpformer_processor.py # YOLOv8-Pose 2D + TCPFormer 3D lifting (81-frame temporal)
 │   ├── utils/
 │   │   ├── cache.py                  # Caching utilities
 │   │   ├── locate_path.py            # Path resolution helpers
@@ -114,9 +113,7 @@ pose-spatial-studio/
 
 **mediapipe_processor.py** - Pose estimation (2D/3D landmarks, skeleton overlay). Dual running mode: `LIVE_STREAM` (async callbacks) for camera, `VIDEO` (synchronous, no frame delay) for video uploads
 
-**yolo_pose_processor.py** - YOLO-NAS-Pose estimation via super-gradients. Outputs COCO 17 keypoints mapped to unified MediaPipe skeleton structure. Uses perspective unprojection for 3D world landmarks. Config `processor_type: "yolo3d"`.
-
-**yolo_tcpformer_processor.py** - Combined YOLO-NAS-Pose 2D detection + TCPFormer temporal 2D→3D lifting. Buffers 81 frames of 2D keypoints, runs TCPFormer transformer to produce real 3D coordinates. GPU-accelerated. Config `processor_type: "yolo_tcpformer"`.
+**yolo_tcpformer_processor.py** - Combined YOLOv8-Pose 2D detection + TCPFormer temporal 2D→3D lifting. Buffers 81 frames of 2D keypoints, runs TCPFormer transformer to produce real 3D coordinates. GPU-accelerated. Config `processor_type: "yolo_tcpformer"`.
 
 ### Frontend
 

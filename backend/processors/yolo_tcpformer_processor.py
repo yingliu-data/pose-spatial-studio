@@ -1,7 +1,7 @@
-"""YOLO-NAS-Pose 2D detection + TCPFormer temporal 2D→3D lifting processor.
+"""YOLOv8-Pose 2D detection + TCPFormer temporal 2D→3D lifting processor.
 
 Pipeline per frame:
-  1. YOLO-NAS-Pose detects COCO-17 keypoints (2D pixel coords)
+  1. YOLOv8-Pose detects COCO-17 keypoints (2D pixel coords)
   2. Convert COCO-17 → H36M-17 ordering
   3. Normalize: center on person bounding-box, scale to ~[-1,1]
   4. Append to 81-frame sliding window (pad by repeating when < 81)
@@ -82,13 +82,50 @@ H36M_TO_UNIFIED = {
     5:  ['leftKnee'],
     6:  ['leftAnkle', 'leftToe'],
     8:  ['neck'],
-    9:  ['leftEye', 'rightEye'],  # nose approximation
+    9:  [],  # Nose — eyes derived from 2D COCO keypoints below
     11: ['leftShoulder'],
     12: ['leftElbow'],
     13: ['leftWrist', 'leftThumb', 'leftIndex', 'leftPinky'],
     14: ['rightShoulder'],
     15: ['rightElbow'],
     16: ['rightWrist', 'rightThumb', 'rightIndex', 'rightPinky'],
+}
+
+# COCO-17 → unified output joint mapping (for 2D landmark output)
+COCO17_TO_OUTPUT_JOINTS = {
+    'leftEye': [1],
+    'rightEye': [2],
+    'leftShoulder': [5],
+    'rightShoulder': [6],
+    'leftElbow': [7],
+    'rightElbow': [8],
+    'leftWrist': [9],
+    'rightWrist': [10],
+    'leftHip': [11],
+    'rightHip': [12],
+    'leftKnee': [13],
+    'rightKnee': [14],
+    'leftAnkle': [15],
+    'rightAnkle': [16],
+    'leftToe': [15],        # fallback to left_ankle
+    'rightToe': [16],       # fallback to right_ankle
+    'hipCentre': [11, 12],  # average of left/right hip
+    'neck': [5, 6],         # average of left/right shoulder
+    'leftThumb': [9],       # fallback to left_wrist
+    'leftIndex': [9],       # fallback to left_wrist
+    'leftPinky': [9],       # fallback to left_wrist
+    'rightThumb': [10],     # fallback to right_wrist
+    'rightIndex': [10],     # fallback to right_wrist
+    'rightPinky': [10],     # fallback to right_wrist
+}
+
+# YOLOv8-Pose model size mapping
+_YOLO_MODEL_MAP = {
+    'n': 'yolov8n-pose.pt',
+    's': 'yolov8s-pose.pt',
+    'm': 'yolov8m-pose.pt',
+    'l': 'yolov8l-pose.pt',
+    'x': 'yolov8x-pose.pt',
 }
 
 # Google Drive file ID for TCPFormer H36M-81 checkpoint
@@ -152,7 +189,7 @@ class YoloTCPFormerProcessor(BaseProcessor):
         pose_cfg = self.config['pose_processor']
         self.confidence_threshold = pose_cfg.get('confidence_threshold', 0.5)
         self.device = pose_cfg.get('device', 'cpu')
-        self.model_size = pose_cfg.get('model_size', 'l')
+        self.model_size = pose_cfg.get('model_size', 'm')
         self.yolo_model = None
         self.tcp_model = None
         # Per-person frame buffer: person_idx → deque of (h36m_kpts_norm, scores)
@@ -168,7 +205,7 @@ class YoloTCPFormerProcessor(BaseProcessor):
             self._is_initialized = True
             logger.info(
                 f"YoloTCPFormer processor {self.processor_id} initialized "
-                f"(YOLO-NAS-Pose-{self.model_size} + TCPFormer-81 on {self.device})")
+                f"(YOLOv8-Pose-{self.model_size} + TCPFormer-81 on {self.device})")
             return True
         except Exception as e:
             logger.error(f"Failed to initialize YoloTCPFormer: {e}",
@@ -176,13 +213,12 @@ class YoloTCPFormerProcessor(BaseProcessor):
             return False
 
     def _init_yolo(self):
-        from super_gradients.training import models as sg_models
-        name = f"yolo_nas_pose_{self.model_size}"
-        logger.info(f"Loading YOLO-NAS-Pose: {name} on {self.device}")
-        self.yolo_model = sg_models.get(name, pretrained_weights="coco_pose")
+        from ultralytics import YOLO
+        model_file = _YOLO_MODEL_MAP.get(self.model_size, 'yolov8m-pose.pt')
+        logger.info(f"Loading YOLOv8-Pose: {model_file} on {self.device}")
+        self.yolo_model = YOLO(model_file)
         if self.device == 'cuda':
-            self.yolo_model = self.yolo_model.cuda()
-        self.yolo_model.eval()
+            self.yolo_model.to('cuda')
 
     def _init_tcpformer(self):
         from models.tcpformer.model import MemoryInducedTransformer
@@ -205,6 +241,9 @@ class YoloTCPFormerProcessor(BaseProcessor):
                 if key in state:
                     state = state[key]
                     break
+        # Strip DataParallel 'module.' prefix from checkpoint keys
+        if any(k.startswith('module.') for k in state.keys()):
+            state = {k.removeprefix('module.'): v for k, v in state.items()}
         self.tcp_model.load_state_dict(state, strict=False)
 
         if self.device == 'cuda':
@@ -238,27 +277,19 @@ class YoloTCPFormerProcessor(BaseProcessor):
         frame_rgb = cv2.cvtColor(frame, cv2.COLOR_BGR2RGB)
 
         # --- YOLO 2D detection ---
-        predictions = self.yolo_model.predict(frame_rgb,
-                                              conf=self.confidence_threshold)
-        if hasattr(predictions, 'prediction'):
-            prediction = predictions.prediction
-        else:
-            prediction = predictions[0].prediction
-
-        poses = prediction.poses
-        bboxes = prediction.bboxes_xyxy
-        det_scores = prediction.scores
+        results = self.yolo_model.predict(
+            frame_rgb, conf=self.confidence_threshold, verbose=False)
+        result = results[0]
 
         annotated = frame.copy()
 
-        if poses is None or len(poses) == 0:
+        if result.keypoints is None or len(result.keypoints) == 0:
             self._frame_buffer.clear()
             return self._empty_result(annotated, timestamp_ms)
 
-        poses = np.array(poses)
-        bboxes = np.array(bboxes)
-        kpts_2d = poses[:, :, :2]    # [N, 17, 2] pixel coords
-        kpt_scores = poses[:, :, 2]  # [N, 17]
+        kpts_2d = result.keypoints.xy.cpu().numpy()       # [N, 17, 2]
+        kpt_scores = result.keypoints.conf.cpu().numpy()   # [N, 17]
+        bboxes = result.boxes.xyxy.cpu().numpy()           # [N, 4]
 
         # Draw skeleton overlay
         self._draw_skeleton(annotated, kpts_2d, kpt_scores, bboxes)
@@ -271,19 +302,8 @@ class YoloTCPFormerProcessor(BaseProcessor):
         h36m_kpts, h36m_scores = _coco17_to_h36m17(person_kpts, person_scores)
 
         # --- Normalize 2D keypoints ---
-        # Bounding-box of visible keypoints for person-centric normalization
-        visible_mask = h36m_scores > 0.3
-        if visible_mask.sum() >= 2:
-            vis_kpts = h36m_kpts[visible_mask]
-            bb_min = vis_kpts.min(axis=0)
-            bb_max = vis_kpts.max(axis=0)
-            bb_center = (bb_min + bb_max) / 2.0
-            bb_size = max((bb_max - bb_min).max(), 1.0)
-        else:
-            bb_center = np.array([w / 2.0, h / 2.0], dtype=np.float32)
-            bb_size = float(max(w, h))
-
-        kpts_norm = (h36m_kpts - bb_center) / bb_size  # ~[-0.5, 0.5]
+        # TCPFormer expects normalize_screen_coordinates: X / w * 2 - [1, h/w]
+        kpts_norm = h36m_kpts / w * 2 - np.array([1.0, h / w], dtype=np.float32)
         # Input tensor: (17, 3) = (x_norm, y_norm, confidence)
         inp_frame = np.concatenate(
             [kpts_norm, h36m_scores[:, None]], axis=-1
@@ -306,8 +326,8 @@ class YoloTCPFormerProcessor(BaseProcessor):
             out_3d = self.tcp_model(inp)  # (1, 81, 17, 3)
             pred_3d = out_3d[0, -1].cpu().numpy()  # last frame → (17, 3)
 
-        # Scale: H36M output is in mm, convert to meters
-        pred_3d_m = pred_3d / 1000.0
+        # TCPFormer output is root-relative in a metric scale (~meters)
+        pred_3d_m = pred_3d
 
         # --- Build 2D landmarks (from YOLO COCO-17, normalized) ---
         landmarks_2d = self._build_2d_landmarks(kpts_2d, kpt_scores, w, h)
@@ -339,7 +359,7 @@ class YoloTCPFormerProcessor(BaseProcessor):
                 "world_landmarks": world_landmarks,
                 "fk_data": fk_data,
                 "root_position": root_position,
-                "num_poses": int(len(poses)),
+                "num_poses": int(len(kpts_2d)),
             },
             "timestamp_ms": timestamp_ms,
             "processor_id": self.processor_id,
@@ -374,7 +394,6 @@ class YoloTCPFormerProcessor(BaseProcessor):
 
     def _build_2d_landmarks(self, kpts_2d, kpt_scores, w, h):
         """Build normalized 2D landmarks in unified joint format (from COCO-17)."""
-        from processors.yolo_pose_processor import COCO17_TO_OUTPUT_JOINTS
         result = []
         for person_kpts, person_scores in zip(kpts_2d, kpt_scores):
             lm = {}
@@ -414,13 +433,26 @@ class YoloTCPFormerProcessor(BaseProcessor):
 
         lm = {}
         for h_idx, joint_names in H36M_TO_UNIFIED.items():
-            x_m = float(pred_3d_m[h_idx, 0]) + root_x
-            y_m = float(pred_3d_m[h_idx, 1]) + root_y
+            x_m = float(pred_3d_m[h_idx, 0] + root_x)
+            y_m = float(pred_3d_m[h_idx, 1] + root_y)
             z_m = float(pred_3d_m[h_idx, 2])
             vis = float(h36m_scores[h_idx])
             for name in joint_names:
                 lm[name] = {
                     "x": x_m, "y": y_m, "z": z_m,
+                    "visibility": vis, "presence": vis,
+                }
+
+        # Derive eye positions from 2D COCO keypoints + 3D head depth
+        # COCO: 1=left_eye, 2=right_eye; H36M: 9=nose (depth reference)
+        head_z = float(pred_3d_m[9, 2])
+        for eye_name, coco_idx in [('leftEye', 1), ('rightEye', 2)]:
+            vis = float(coco_scores[coco_idx])
+            if vis > 0.3:
+                ex = float((person_kpts_coco[coco_idx][0] - w / 2.0) * xy_scale)
+                ey = float((person_kpts_coco[coco_idx][1] - h / 2.0) * xy_scale)
+                lm[eye_name] = {
+                    "x": ex, "y": ey, "z": head_z,
                     "visibility": vis, "presence": vis,
                 }
 

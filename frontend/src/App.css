@@ -819,6 +819,11 @@ option { background: #1c1c1e; color: #fff; }
   min-width: 0;
 }
 
+.log-message-truncated {
+  cursor: pointer;
+  opacity: 0.8;
+}
+
 .log-scroll-to-bottom {
   position: absolute;
   bottom: 12px;

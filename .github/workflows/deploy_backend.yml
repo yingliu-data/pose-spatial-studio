@@ -59,8 +59,6 @@ jobs:
       - name: Deploy to container and restart
         run: |
           CONTAINER=pose-spatial-studio-backend
-          WEIGHTS_DIR="/root/.cache/torch/hub/checkpoints"
-          WEIGHTS_FILE="yolo_nas_pose_l_coco_pose.pth"
           TCPFORMER_DIR="/root/backend/models/tcpformer"
           TCPFORMER_FILE="TCPFormer_h36m_81.pth.tr"
           TCPFORMER_GDRIVE_ID="14D_gfCflgl67-nl0L2MJijbARizbphnP"
@@ -70,7 +68,9 @@ jobs:
             --exclude '.venv*' \
             --exclude '__pycache__' \
             --exclude '*.pyc' \
-            --exclude 'models/' \
+            --exclude 'models/*.task' \
+            --exclude 'models/*.tflite' \
+            --exclude 'models/tcpformer/*.pth*' \
             --exclude 'logs/' \
             --exclude '.cache/' \
             --exclude 'output/' \
@@ -88,18 +88,6 @@ jobs:
 
             echo "=== Installing dependencies ==="
             docker exec $CONTAINER bash -c "cd /root/backend && pip install --break-system-packages -r requirements.txt -q"
-            docker exec $CONTAINER bash -c "pip install --break-system-packages --no-deps 'super-gradients>=3.7.0' 'albumentations>=1.3,<1.4' 'data-gradients>=0.3.1,<0.4' -q"
-
-            echo "=== Pre-downloading YOLO-NAS-Pose weights (if not cached) ==="
-            docker exec $CONTAINER mkdir -p $WEIGHTS_DIR
-            if ! docker exec $CONTAINER test -f "$WEIGHTS_DIR/$WEIGHTS_FILE"; then
-              curl -L -o /tmp/$WEIGHTS_FILE https://sg-hub-nv.s3.amazonaws.com/models/$WEIGHTS_FILE
-              docker cp /tmp/$WEIGHTS_FILE $CONTAINER:$WEIGHTS_DIR/$WEIGHTS_FILE
-              rm -f /tmp/$WEIGHTS_FILE
-              echo "✓ YOLO weights downloaded"
-            else
-              echo "✓ YOLO weights already cached"
-            fi
 
             echo "=== Pre-downloading TCPFormer checkpoint (if not cached) ==="
             docker exec $CONTAINER mkdir -p $TCPFORMER_DIR

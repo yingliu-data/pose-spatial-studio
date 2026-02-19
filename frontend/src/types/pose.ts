@@ -27,6 +27,7 @@ export interface LimbCentre {
 
 export const UNIFIED_JOINT_NAMES = [
   'hipCentre', 'neck',
+  'leftEye', 'rightEye',
   'rightShoulder', 'rightElbow', 'rightWrist', 'rightThumb', 'rightIndex', 'rightPinky',
   'leftShoulder', 'leftElbow', 'leftWrist', 'leftThumb', 'leftIndex', 'leftPinky',
   'rightHip', 'rightKnee', 'rightAnkle', 'rightToe',

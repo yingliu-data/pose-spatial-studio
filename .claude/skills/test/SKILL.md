@@ -4,14 +4,16 @@ name: test
 
 Run the validation suite for **$ARGUMENTS** (or full validation if no arguments given).
 
-Execute steps in order. Steps 1, 2, 3, and 4 are **compulsory** — do NOT skip them.
+**CRITICAL: Steps 0, 1, 2, 3, and 4 are ALL MANDATORY and BLOCKING — do NOT skip ANY of them.**
+**Steps 2 and 3 have USER-APPROVAL GATES — you MUST stop and get explicit user approval before continuing past them.**
+**If you skip any step or gate, the entire validation is invalid and must be restarted from Step 0.**
 
 **IMPORTANT — run from the correct project:** All tests MUST run from the **working project directory** (the project with your code changes), NOT from wherever this SKILL.md lives. If you have multiple project copies (e.g., `pose-spatial-studio` and `pose-spatial-studio-1`), always `cd` into the one with your active feature branch before running any commands.
 
 **IMPORTANT — Do not make any changes in Staging and produc server from local project. It can only be done through GitHub CI/CD pipeline**
 ---
 
-## Step 0: Pre-flight checks (compulsory)
+## Step 0: Pre-flight checks (MANDATORY)
 
 Before running any tests, **kill all existing servers** to prevent stale/wrong backends from being reused:
 
@@ -27,7 +29,7 @@ This is critical because Playwright's `reuseExistingServer: true` (the local def
 
 ---
 
-## Step 1: Automated E2E tests (compulsory)
+## Step 1: Automated E2E tests (MANDATORY)
 
 Run Playwright tests from the **working project's** `tests/` directory. Playwright auto-starts both backend (port 49101) and frontend (port 8585) via `webServer` config if they aren't already running.
 
@@ -64,11 +66,12 @@ If tests fail, diagnose and fix before continuing.
 
 ---
 
-## Step 2: Manual testing (ask for permission to go to step 3)
+## Step 2: Manual testing (MANDATORY)
 
-Use when automated tests are insufficient or you need additional verification. need user's confirmation to continue with next step
+> **STOP GATE — After completing this step, you MUST use `AskUserQuestion` to ask the user: "Manual testing is complete. May I proceed to Step 3 (Staging environment testing)?" Do NOT continue to Step 3 without explicit user approval.**
 
 1. **Start dev environment** (if not already running):
+    - python venv environment is in `backend/.venv.nosync`
    - Backend: `cd backend && ./run_server.sh` (port 49101)
    - Frontend: `cd frontend && ./run_ui.sh` (port 8585)
    - Confirm frontend connects to the **local** backend
@@ -92,7 +95,9 @@ Use when automated tests are insufficient or you need additional verification. n
 
 ---
 
-## Step 3: Staging environment testing
+## Step 3: Staging environment testing (MANDATORY)
+
+> **STOP GATE — After completing this step, you MUST use `AskUserQuestion` to ask the user: "Staging tests are complete. May I proceed to Step 4 (Remote GPU validation)?" Do NOT continue to Step 4 without explicit user approval.**
 
 Validate changes against the staging backend before production deployment.
 
@@ -133,10 +138,11 @@ Validate changes against the staging backend before production deployment.
    ```bash
    ssh pose-backend "docker exec pose-spatial-studio-backend-staging tail -30 /root/backend/logs/app.log"
    ```
+9. **STOP** — Use `AskUserQuestion` to ask the user whether staging tests passed and whether to proceed to Step 4
 
 ---
 
-## Step 4: Remote GPU validation (compulsory) need user's confirmation to continue with next step
+## Step 4: Remote GPU validation (MANDATORY)
 
 Verify the staging backend is healthy and GPU-accessible. This applies to **all changes** because the backend always runs on GPU infrastructure.
 
@@ -168,12 +174,13 @@ See `/ssh-servers` skill for full remote debugging commands.
 
 Before marking validation as complete, confirm ALL of the following:
 
-- [ ] **Step 1** — Automated Playwright tests passed
-- [ ] **Step 2** 
-- [ ] **Step 3** — Staging environment tested (deployed, health check OK, pose detection works)
+- [ ] **Step 0** — Pre-flight checks completed (servers killed, ports free)
+- [ ] **Step 1** — Automated Playwright tests passed; screenshots verified
+- [ ] **Step 2** — Manual testing completed; user approved to proceed
+- [ ] **Step 3** — Staging environment tested (deployed, health check OK, pose detection works); user approved to proceed
 - [ ] **Step 4** — Remote GPU validation passed (health check + logs reviewed)
 - [ ] Implementation meets all acceptance criteria
 
 If any step fails → fix the issue and re-run from that step.
 
-## After all test pass, continue with Update Documentation step in @develop/SKILL.md
+**After ALL steps pass, return to develop/SKILL.md and continue with Step 5 (Update Documentation). Do NOT skip documentation updates.**

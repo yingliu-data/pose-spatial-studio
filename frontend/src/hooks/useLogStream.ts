@@ -28,7 +28,7 @@ export function useLogStream(
 
   const subscribe = useCallback(() => {
     if (socket && connected && !subscribedRef.current) {
-      socket.emit('subscribe_logs', { level: 'DEBUG' });
+      socket.emit('subscribe_logs', { level: 'INFO' });
       subscribedRef.current = true;
       setIsSubscribed(true);
     }

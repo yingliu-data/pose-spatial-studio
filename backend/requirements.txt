@@ -8,35 +8,9 @@ rtmlib>=0.0.14
 onnxruntime-gpu
 onnx>=1.15.0
 pycocotools>=2.0.7
-# super-gradients installed separately with --no-deps (pins onnxruntime==1.15.0 which conflicts with rtmlib)
-# The following are super-gradients transitive deps (not auto-installed due to --no-deps):
-stringcase
-onnxsim
-rapidfuzz
-einops==0.3.2
-json-tricks==3.16.1
-treelib==1.6.1
-platformdirs
-qudida
-pandas
-seaborn
-scipy
-scikit-learn
-scikit-image
-tqdm
-psutil
-hydra-core
-omegaconf
-torchmetrics
-Deprecated
-boto3
-tensorboard
-termcolor
-werkzeug
-jsonschema
-matplotlib
-requests
-imagesize
+
+# YOLO 2D pose detection (for YOLO+TCPFormer pipeline)
+ultralytics
 
 # TCPFormer 2D→3D lifting
 timm>=0.9.0

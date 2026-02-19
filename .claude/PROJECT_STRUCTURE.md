@@ -121,7 +121,7 @@ pose-spatial-studio/
 
 **App.tsx** - Root component, manages streams and WebSocket connection
 
-**Controls.tsx** - Stream management: add/delete streams, camera selection, model selection, config upload
+**Controls.tsx** - Stream management: add/delete streams, camera selection, config upload
 
 **CameraCapture.tsx** - Camera access, 10 FPS capture, JPEG encoding, receives processed frames
 

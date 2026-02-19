@@ -2,7 +2,7 @@ import { useState } from 'react';
 import { useCameraDevices } from '@/hooks/useCameraDevices';
 import { Socket } from 'socket.io-client';
 import { StreamInitService } from '@/services/streamInitService';
-import { AVAILABLE_MODELS, type ModelType } from '@/App';
+import { type ModelType } from '@/App';
 
 interface Stream {
   streamId: string;
@@ -197,21 +197,6 @@ export function Controls({
               <option value="video">Video File</option>
             </select>
             <small>Camera for live feed or video file for playback</small>
-          </div>
-
-          <div className="form-group">
-            <label>Pose Model</label>
-            <select
-              value={formData.modelType}
-              onChange={(e) => setFormData({ ...formData, modelType: e.target.value as ModelType })}
-            >
-              {AVAILABLE_MODELS.map((model) => (
-                <option key={model.value} value={model.value}>
-                  {model.label}
-                </option>
-              ))}
-            </select>
-            <small>Pose estimation model (can be changed during stream)</small>
           </div>
 
           {formData.sourceType === 'camera' ? (

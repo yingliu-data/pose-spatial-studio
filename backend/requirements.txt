@@ -38,8 +38,12 @@ matplotlib
 requests
 imagesize
 
+# TCPFormer 2D→3D lifting
+timm>=0.9.0
+gdown
+
 # CLIP for image retrieval
 git+https://github.com/openai/CLIP.git
-torch 
-torchvision 
+torch
+torchvision
 pillow

@@ -9,6 +9,7 @@ export const AVAILABLE_MODELS = [
   { value: 'mediapipe', label: 'MediaPipe' },
   { value: 'rtmpose', label: 'RTMPose' },
   { value: 'yolo3d', label: 'YOLO-NAS-Pose' },
+  { value: 'yolo_tcpformer', label: 'YOLO+TCPFormer' },
 ] as const;
 
 export type ModelType = typeof AVAILABLE_MODELS[number]['value'];

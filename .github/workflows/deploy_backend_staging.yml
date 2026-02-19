@@ -89,6 +89,19 @@ jobs:
               echo "✓ YOLO weights already cached"
             fi
 
+            echo "=== Pre-downloading TCPFormer checkpoint (if not cached) ==="
+            TCPFORMER_DIR="/root/backend/models/tcpformer"
+            TCPFORMER_FILE="TCPFormer_h36m_81.pth.tr"
+            TCPFORMER_GDRIVE_ID="14D_gfCflgl67-nl0L2MJijbARizbphnP"
+            docker exec $CONTAINER mkdir -p $TCPFORMER_DIR
+            if ! docker exec $CONTAINER test -f "$TCPFORMER_DIR/$TCPFORMER_FILE"; then
+              docker exec $CONTAINER pip install --break-system-packages gdown -q
+              docker exec $CONTAINER gdown "$TCPFORMER_GDRIVE_ID" -O "$TCPFORMER_DIR/$TCPFORMER_FILE"
+              echo "✓ TCPFormer checkpoint downloaded"
+            else
+              echo "✓ TCPFormer checkpoint already cached"
+            fi
+
             echo "=== Restarting container (clears zombie processes) ==="
             docker restart $CONTAINER
             sleep 3

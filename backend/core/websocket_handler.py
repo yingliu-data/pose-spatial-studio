@@ -11,6 +11,7 @@ from typing import Dict, Any, Tuple
 from processors.mediapipe_processor import MediaPipeProcessor
 from processors.rtmpose_processor import RTMPoseProcessor
 from processors.yolo_pose_processor import YoloPoseProcessor
+from processors.yolo_tcpformer_processor import YoloTCPFormerProcessor
 from processors.image_processor import ImageProcessor
 from processors.base_processor import BaseProcessor
 from processors.data_processor import DataProcessor
@@ -103,10 +104,13 @@ class WebSocketHandler:
                     elif processor_type == 'yolo3d':
                         logger.info(f"[INIT] Creating YOLO-NAS-Pose processor")
                         processor_pipeline['pose_processor'] = YoloPoseProcessor(processor_id, processor_config)
+                    elif processor_type == 'yolo_tcpformer':
+                        logger.info(f"[INIT] Creating YOLO+TCPFormer processor")
+                        processor_pipeline['pose_processor'] = YoloTCPFormerProcessor(processor_id, processor_config)
                     else:
                         await self.sio.emit('stream_error', {
                             'stream_id': stream_id,
-                            'message': f'Unknown processor type: {processor_type}. Use "mediapipe", "rtmpose", or "yolo3d" in config.'
+                            'message': f'Unknown processor type: {processor_type}. Use "mediapipe", "rtmpose", "yolo3d", or "yolo_tcpformer" in config.'
                         }, room=sid)
                         return
                 
@@ -208,6 +212,10 @@ class WebSocketHandler:
                     current_type = 'mediapipe'
                 elif isinstance(current_pose, RTMPoseProcessor):
                     current_type = 'rtmpose'
+                elif isinstance(current_pose, YoloTCPFormerProcessor):
+                    current_type = 'yolo_tcpformer'
+                elif isinstance(current_pose, YoloPoseProcessor):
+                    current_type = 'yolo3d'
 
                 # Skip if already using the requested model
                 if current_type == new_processor_type:
@@ -239,6 +247,10 @@ class WebSocketHandler:
                     new_pose = MediaPipeProcessor(processor_id, processor_config)
                 elif new_processor_type == 'rtmpose':
                     new_pose = RTMPoseProcessor(processor_id, processor_config)
+                elif new_processor_type == 'yolo3d':
+                    new_pose = YoloPoseProcessor(processor_id, processor_config)
+                elif new_processor_type == 'yolo_tcpformer':
+                    new_pose = YoloTCPFormerProcessor(processor_id, processor_config)
                 else:
                     await self.sio.emit('stream_error', {
                         'stream_id': stream_id,

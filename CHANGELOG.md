@@ -4,6 +4,14 @@ All notable changes to the Pose Spatial Studio project will be documented in thi
 
 The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.0.0/).
 
+## [1.3.0] - 19 February 2026
+
+### Added
+- YOLO+TCPFormer 2D→3D pose lifting: new `yolo_tcpformer` processor combining YOLO-NAS-Pose 2D detection with TCPFormer temporal transformer for real 3D pose estimation
+- TCPFormer model (AAAI 2025) consolidated as lean inference-only module at `backend/models/tcpformer/`
+- Auto-download of TCPFormer H36M-81 checkpoint from Google Drive via gdown
+- CI/CD pre-downloads TCPFormer checkpoint in both staging and production deploy workflows
+
 ## [1.2.2] - 18 February 2026
 
 ### Fixed

@@ -80,7 +80,7 @@ class Converter:
 
         if not self._has_minimum_joints():
             logger.warning("Insufficient joint data for angle calculation")
-            return self.kpts
+            return {}
 
         self.get_bone_lengths()
         self.get_base_skeleton()

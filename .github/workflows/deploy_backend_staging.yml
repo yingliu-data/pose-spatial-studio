@@ -52,6 +52,9 @@ jobs:
           CONTAINER=pose-spatial-studio-backend-staging
           WEIGHTS_DIR="/root/.cache/torch/hub/checkpoints"
           WEIGHTS_FILE="yolo_nas_pose_l_coco_pose.pth"
+          TCPFORMER_DIR="/root/backend/models/tcpformer"
+          TCPFORMER_FILE="TCPFormer_h36m_81.pth.tr"
+          TCPFORMER_GDRIVE_ID="14D_gfCflgl67-nl0L2MJijbARizbphnP"
 
           # Sync backend files to host staging area
           rsync -az --delete \
@@ -90,9 +93,6 @@ jobs:
             fi
 
             echo "=== Pre-downloading TCPFormer checkpoint (if not cached) ==="
-            TCPFORMER_DIR="/root/backend/models/tcpformer"
-            TCPFORMER_FILE="TCPFormer_h36m_81.pth.tr"
-            TCPFORMER_GDRIVE_ID="14D_gfCflgl67-nl0L2MJijbARizbphnP"
             docker exec $CONTAINER mkdir -p $TCPFORMER_DIR
             if ! docker exec $CONTAINER test -f "$TCPFORMER_DIR/$TCPFORMER_FILE"; then
               docker exec $CONTAINER pip install --break-system-packages gdown -q

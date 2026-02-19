@@ -208,7 +208,7 @@ export function CameraCapture({
 
   return (
     <>
-      <video ref={videoRef} style={{ display: 'none' }} playsInline muted />
+      <video ref={videoRef} style={{ position: 'absolute', width: 1, height: 1, opacity: 0, pointerEvents: 'none', overflow: 'hidden' }} playsInline muted />
       <canvas ref={canvasRef} style={{ display: 'none' }} />
       <canvas ref={processedCanvasRef} style={{ display: 'none' }} />
     </>

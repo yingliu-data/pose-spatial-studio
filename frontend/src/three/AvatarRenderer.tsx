@@ -149,13 +149,12 @@ export function AvatarRenderer({
     const intermediateInverse = intermediateInverseRef.current;
     const intermediateRotations = intermediateRotationRef.current;
 
-    if (rootPosition) {
-      const hipsBone = bones.get(MIXAMO_BONES.HIPS);
-      if (hipsBone) {
-        const targetPos = new THREE.Vector3(rootPosition.x, rootPosition.y, rootPosition.z);
-        prevPositionRef.current.lerp(targetPos, SMOOTHING_FACTOR);
-        hipsBone.position.copy(prevPositionRef.current);
-      }
+    // Apply root position to the group (world space) rather than the hip bone
+    // (which is in Armature-local space with different scale and rotation).
+    if (rootPosition && groupRef.current) {
+      const targetPos = new THREE.Vector3(rootPosition.x, rootPosition.y, rootPosition.z);
+      prevPositionRef.current.lerp(targetPos, SMOOTHING_FACTOR);
+      groupRef.current.position.copy(prevPositionRef.current);
     }
 
     for (const jointName of UNIFIED_JOINT_NAMES) {

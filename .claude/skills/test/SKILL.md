@@ -69,6 +69,7 @@ If tests fail, diagnose and fix before continuing.
 Use when automated tests are insufficient or you need additional verification. need user's confirmation to continue with next step
 
 1. **Start dev environment** (if not already running):
+    - python venv environment is in `backend/.venv.nosync`
    - Backend: `cd backend && ./run_server.sh` (port 49101)
    - Frontend: `cd frontend && ./run_ui.sh` (port 8585)
    - Confirm frontend connects to the **local** backend

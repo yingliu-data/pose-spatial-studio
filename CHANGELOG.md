@@ -4,6 +4,12 @@ All notable changes to the Pose Spatial Studio project will be documented in thi
 
 The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.0.0/).
 
+## [1.3.4] - 19 February 2026
+
+### Changed
+- Remove Pose Model selector from sidebar stream creation form; MediaPipe is the default model
+- Model switching remains available via per-stream overlay dropdown during playback
+
 ## [1.3.3] - 19 February 2026
 
 ### Fixed

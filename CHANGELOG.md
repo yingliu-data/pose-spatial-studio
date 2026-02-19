@@ -4,6 +4,12 @@ All notable changes to the Pose Spatial Studio project will be documented in thi
 
 The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.0.0/).
 
+## [1.3.2] - 19 February 2026
+
+### Fixed
+- RTMPose avatar tracking: use per-joint depth-corrected perspective unprojection instead of constant root depth, producing accurate 3D bone directions for FK quaternion computation
+- RTMPose world landmark jitter: smooth z_root estimate across frames with MedianFilter to reduce scale fluctuation
+
 ## [1.3.1] - 19 February 2026
 
 ### Fixed

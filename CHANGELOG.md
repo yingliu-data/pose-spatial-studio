@@ -4,6 +4,28 @@ All notable changes to the Pose Spatial Studio project will be documented in thi
 
 The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.0.0/).
 
+## [1.3.2] - 19 February 2026
+
+### Fixed
+- RTMPose avatar tracking: use per-joint depth-corrected perspective unprojection instead of constant root depth, producing accurate 3D bone directions for FK quaternion computation
+- RTMPose world landmark jitter: smooth z_root estimate across frames with MedianFilter to reduce scale fluctuation
+
+## [1.3.1] - 19 February 2026
+
+### Fixed
+- Avatar stuck in T-pose: bone name mismatch (`mixamorig:Hips` vs `mixamorigHips`) caused all bone lookups to fail silently
+- Avatar not initializing: `useEffect` fired before R3F reconciler assigned group ref; rewrote with `useFrame` lazy initialization
+- FK data silently dropped: `kinetic.py` returned non-serializable Python `set` on insufficient joints, failing JSON serialization
+- Deploy workflow: TCPFormer variables defined inside unquoted SSH heredoc expanded to empty strings
+
+## [1.3.0] - 19 February 2026
+
+### Added
+- YOLO+TCPFormer 2D→3D pose lifting: new `yolo_tcpformer` processor combining YOLO-NAS-Pose 2D detection with TCPFormer temporal transformer for real 3D pose estimation
+- TCPFormer model (AAAI 2025) consolidated as lean inference-only module at `backend/models/tcpformer/`
+- Auto-download of TCPFormer H36M-81 checkpoint from Google Drive via gdown
+- CI/CD pre-downloads TCPFormer checkpoint in both staging and production deploy workflows
+
 ## [1.2.2] - 18 February 2026
 
 ### Fixed

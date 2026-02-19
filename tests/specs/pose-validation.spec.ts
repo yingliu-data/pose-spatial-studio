@@ -71,12 +71,18 @@ test.describe('Pose Capture and Avatar Validation', () => {
     const modelSelect = page.locator('.add-form select').nth(1);
     await expect(modelSelect).toBeVisible();
 
-    // Verify model select has mediapipe and rtmpose options
-    await expect(modelSelect.locator('option')).toHaveCount(2);
-    await modelSelect.selectOption('rtmpose');
-    await expect(modelSelect).toHaveValue('rtmpose');
+    // Verify model select has expected model options (mediapipe, rtmpose, yolo3d, yolo_tcpformer)
+    const options = modelSelect.locator('option');
+    const count = await options.count();
+    expect(count).toBeGreaterThanOrEqual(4);
     await modelSelect.selectOption('mediapipe');
     await expect(modelSelect).toHaveValue('mediapipe');
+    await modelSelect.selectOption('rtmpose');
+    await expect(modelSelect).toHaveValue('rtmpose');
+    await modelSelect.selectOption('yolo3d');
+    await expect(modelSelect).toHaveValue('yolo3d');
+    await modelSelect.selectOption('yolo_tcpformer');
+    await expect(modelSelect).toHaveValue('yolo_tcpformer');
   });
 
   test('should switch to video file input when source type is Video', async ({ page }) => {
@@ -92,8 +98,16 @@ test.describe('Pose Capture and Avatar Validation', () => {
     await expect(fileInput).toBeVisible();
   });
 
-  test('full video upload workflow', async ({ page }) => {
-    test.setTimeout(90_000);
+  test('full video upload workflow with pose detection', async ({ page }) => {
+    test.setTimeout(120_000);
+
+    // Collect WebGL errors — if any appear, the 3D renderer is broken
+    const webglErrors: string[] = [];
+    page.on('console', msg => {
+      if (msg.text().includes('WebGL context could not be created')) {
+        webglErrors.push(msg.text());
+      }
+    });
 
     // Wait for connection
     await expect(page.locator('text=Connected').first()).toBeVisible({ timeout: 15_000 });
@@ -126,22 +140,47 @@ test.describe('Pose Capture and Avatar Validation', () => {
     // Step 5: Verify stream appears in active streams list
     await expect(page.locator('.stream-item', { hasText: 'pose-test-video' })).toBeVisible({ timeout: 30_000 });
 
-    // Step 6: Wait for pose processing
-    await page.waitForTimeout(8_000);
-
-    // Step 7: Verify stream is active
+    // Step 6: Verify stream is active
     await expect(page.locator('.status-badge.active').first()).toBeVisible({ timeout: 5_000 });
 
-    // Step 8: Verify canvas is rendering (3D viewer or video)
-    const canvasCount = await page.locator('canvas').count();
-    expect(canvasCount).toBeGreaterThan(0);
+    // Step 7: Click Play to start video playback and frame processing
+    const playBtn = page.locator('button.btn-primary', { hasText: /Play/i });
+    await expect(playBtn).toBeVisible({ timeout: 5_000 });
+    await playBtn.click();
 
-    // Step 9: Take screenshot for visual verification
+    // Step 8: Wait for pose data to flow — "LIVE" indicator appears when poseResult.frame exists
+    await expect(page.locator('text=LIVE').first()).toBeVisible({ timeout: 30_000 });
+
+    // Step 9: Allow frames to process for avatar/skeleton rendering
+    await page.waitForTimeout(5_000);
+
+    // Step 10: Verify WebGL initialized (no context creation errors)
+    expect(webglErrors).toHaveLength(0);
+
+    // Step 11: Verify Three.js canvas renders non-trivial content (not blank)
+    // Take a screenshot of just the view-container and check it has varied pixel data
+    const viewContainer = page.locator('.view-container');
+    const containerShot = await viewContainer.screenshot();
+    // A blank/black canvas produces a very small PNG; rendered 3D content is much larger
+    expect(containerShot.byteLength).toBeGreaterThan(5_000);
+
+    // Step 12: Screenshot in Avatar mode (default)
     await page.screenshot({
-      path: 'results/pose-validation-workflow.png',
+      path: 'results/pose-validation-avatar.png',
       fullPage: true
     });
 
-    console.log('Pose validation workflow passed — video upload, stream creation, and pose detection verified');
+    // Step 13: Switch to Skeleton mode via overlay toggle button
+    const rendererToggle = page.locator('button[title*="Switch to"]');
+    await rendererToggle.click();
+    await page.waitForTimeout(2_000);
+
+    // Step 14: Screenshot in Skeleton mode
+    await page.screenshot({
+      path: 'results/pose-validation-skeleton.png',
+      fullPage: true
+    });
+
+    console.log('Pose validation passed — video upload, playback, pose detection, avatar and skeleton rendering verified');
   });
 });

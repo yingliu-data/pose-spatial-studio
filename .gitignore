@@ -44,7 +44,14 @@ yarn-error.log*
 pnpm-debug.log*
 
 # ---- ML models & large weights (keep placeholders) ----
-backend/models/
+# Ignore contents of models/ but allow specific subdirectories
+backend/models/*
+!backend/models/.gitkeep
+!backend/models/tcpformer/
+# Ignore checkpoint weights in tcpformer/
+backend/models/tcpformer/*.pth*
+backend/models/tcpformer/*.pt
+backend/models/tcpformer/*.ckpt
 
 # ---- Project runtime artifacts ----
 logs/

@@ -90,7 +90,7 @@ When a ticket depends on another ticket still in code review, branch from that t
 
 ## Step 3: Implement Changes
 
-**Current default model**: MediaPipe (with GPU delegate). The backend processor is `processors/mediapipe_processor.py`. Alternative processors: RTMPose3D at `processors/rtmpose_processor.py`, YOLO-NAS-Pose at `processors/yolo_pose_processor.py` (config `processor_type: "yolo3d"`). Users can select the model from a dropdown in the stream creation form or switch models live via the overlay on the stream viewer. Available models are defined in `AVAILABLE_MODELS` in `frontend/src/App.tsx`.
+**Current default model**: MediaPipe (with GPU delegate). The backend processor is `processors/mediapipe_processor.py`. Alternative processors: RTMPose3D at `processors/rtmpose_processor.py`, YOLO-NAS-Pose at `processors/yolo_pose_processor.py` (config `processor_type: "yolo3d"`), YOLO+TCPFormer at `processors/yolo_tcpformer_processor.py` (config `processor_type: "yolo_tcpformer"`). Users can select the model from a dropdown in the stream creation form or switch models live via the overlay on the stream viewer. Available models are defined in `AVAILABLE_MODELS` in `frontend/src/App.tsx`.
 
 Follow these guidelines during implementation:
 
@@ -125,129 +125,8 @@ cd backend && python -m py_compile app.py
 
 ## Step 4: Validate
 
-**IMPORTANT: Steps 4A, 4C, and 4D are ALL compulsory. You MUST run all three before proceeding to Step 5. Do NOT skip any of them.** Failure to run all three validation steps is a workflow violation.
-
-### 4A: Automated testing (compulsory — MUST RUN)
-
-Run Playwright E2E tests from the `tests/` directory. Playwright auto-starts both backend (port 49101) and frontend (port 8585) if they aren't already running.
-
-```bash
-cd tests && npm test
-```
-
-At minimum, run the mediapipe video test on chromium:
-```bash
-cd tests && npx playwright test specs/mediapipe-video-test.spec.ts --project=chromium
-```
-
-**Other test commands:**
-```bash
-npm run test:headed    # Run with visible browser
-npm run test:debug     # Debug mode with breakpoints
-npm run test:ui        # Interactive Playwright UI
-npm run test:report    # View HTML report after a run
-```
-Test pose estimation performance by uploading tests/test.mp4 to initiate stream on UI and click play.
-Test specs live in `tests/specs/`:
-- `pose-validation.spec.ts` -- Main E2E test suite for pose detection
-- `mediapipe-video-test.spec.ts` -- MediaPipe video input test
-- `staging-video-test.spec.ts` -- Staging environment test (use with `playwright.staging.config.ts`)
-
-When adding new features, consider adding or updating specs.
-
-### 4B: Manual testing (optional)
-
-If automated tests are insufficient or you need to test visually:
-
-1. **Start the dev environment** (if not already running):
-   - Backend: `cd backend && ./run_server.sh` (serves on `http://localhost:49101`)
-   - Frontend: `cd frontend && ./run_ui.sh` (serves on `http://localhost:8585`)
-   - Verify the frontend connects to the **local** backend (not production)
-
-2. **Test with video file** (no camera needed):
-   - Open `http://localhost:8585`
-   - Enter a stream name (e.g. `test`)
-   - Select the **Video** input option
-   - Upload the test video at `tests/test.mp4`
-   - Start the stream and verify pose detection + avatar rendering
-
-3. **Test with live camera** (when relevant):
-   - Open `http://localhost:8585`
-   - Enter a stream name (e.g. `test`)
-   - Select a camera device
-   - Verify pose landmarks overlay and 3D skeleton/avatar respond
-
-### 4C: Staging environment testing (compulsory — MUST RUN)
-
-**You MUST run this step.** Use the staging environment to validate changes before production deployment.
-
-**Staging infrastructure:**
-- **Backend container**: `pose-spatial-studio-backend-staging` on VM2 port `49102`
-- **Staging URL**: `https://pose-backend-staging.yingliu.site`
-- **CI/CD**: `deploy_backend_staging.yml` triggers on push to `staging` branch
-- **GitHub secret**: `VITE_STAGING_BACKEND_URL` = `https://pose-backend-staging.yingliu.site`
-
-**Staging test workflow:**
-
-1. Commit changes and create PR to `staging` branch
-2. Merge PR — this triggers automatic deployment to the staging container
-3. Wait for the `Deploy backend (staging)` GitHub Actions workflow to pass
-4. Run frontend locally connected to staging backend:
-   ```bash
-   cd frontend && VITE_BACKEND_URL=https://pose-backend-staging.yingliu.site npm run dev
-   ```
-5. Open `http://localhost:8585`
-6. Enter a stream name, select **Video**, upload `tests/test.mp4`
-7. Click **Create & Start Stream**, press **Play**
-8. Observe logs in frontend console and staging backend:
-   ```bash
-   ssh -o ProxyCommand="cloudflared access ssh --hostname %h" root@pose-backend-ssh.yingliu.site \
-     "docker exec pose-spatial-studio-backend-staging tail -30 /root/backend/logs/app.log"
-   ```
-9. Take screenshot to verify pose detection works
-10. If test passes → create PR from `staging` to `main` to trigger production deployment
-
-**Automated staging test:**
-```bash
-cd frontend && VITE_BACKEND_URL=https://pose-backend-staging.yingliu.site npm run dev &
-cd tests && npx playwright test specs/staging-video-test.spec.ts --config=playwright.staging.config.ts --project=chromium
-```
-
-**Staging health check:**
-```bash
-curl https://pose-backend-staging.yingliu.site/health
-```
-
-
-### 4D: Remote GPU validation (compulsory — MUST RUN)
-
-**You MUST run this step.** Verify the staging backend is healthy and GPU-accessible after deployment. This applies to all changes, not just GPU-specific features, because the backend always runs on GPU infrastructure.
-
-```bash
-# Production backend
-ssh -o ProxyCommand="cloudflared access ssh --hostname %h" root@pose-backend-ssh.yingliu.site
-docker exec pose-spatial-studio-backend curl -s http://localhost:49101/health
-docker exec pose-spatial-studio-backend tail -50 /root/backend/logs/app.log
-
-# Staging backend
-docker exec pose-spatial-studio-backend-staging curl -s http://localhost:49101/health
-docker exec pose-spatial-studio-backend-staging tail -50 /root/backend/logs/app.log
-```
-
-See `/ssh-servers` skill for full remote debugging commands.
-
-### Validate against acceptance criteria
-
-Before proceeding, confirm ALL of the following:
-- [ ] **4A** Automated Playwright tests passed
-- [ ] **4C** Staging environment test passed (PR merged to staging, deployed, test run)
-- [ ] **4D** Remote GPU validation passed (health check + logs reviewed)
-- [ ] Implementation meets all acceptance criteria from Step 1
-
-If any validation fails → Return to Step 3 and fix.
-If all pass → Proceed to Step 5.
-
----
+follow test/SKILL.md to run test.
+ask user for approval to continue with step 5
 
 ## Step 5: Update Documentation
 
@@ -265,8 +144,8 @@ Add an entry to the appropriate `CHANGELOG.md` file:
 
 If the version section doesn't exist, create it at the top of the file.
 
-### 2. `.claude/PROJECT_STRUCTURE.md`
-If the changes affect project architecture (new files, moved directories, new processors), update `.claude/PROJECT_STRUCTURE.md` accordingly.
+### 2. PROJECT_STRUCTURE.md
+If the changes affect project architecture (new files, moved directories, new processors), update `PROJECT_STRUCTURE.md` accordingly.
 
 ### 3. README.md
 If the changes affect setup, usage, or dependencies, update the relevant `README.md` file.
@@ -275,7 +154,7 @@ If the changes affect setup, usage, or dependencies, update the relevant `README
 Mark all completed tasks in your TODO list as `completed` using `TodoWrite`.
 
 ### 5. Skill update
-Update SKILL.md files in `.claude/skills/` based on the progress in the session, so skills adapt to the user's development workflow.
+Update 'SKILL.md' files based on the progress in the session, so skills adapt to the user's development workflow.
 
 ---
 

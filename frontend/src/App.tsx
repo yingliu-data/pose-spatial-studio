@@ -1,7 +1,9 @@
 import { useState, useCallback } from 'react';
 import { useWebSocket } from '@/hooks/useWebSocket';
+import { useLogStream } from '@/hooks/useLogStream';
 import { Controls } from '@/components/Controls';
 import { MultiViewGrid } from '@/components/MultiViewGrid';
+import { LogPanel } from '@/components/LogPanel';
 import { StreamInitService } from '@/services/streamInitService';
 import './App.css';
 
@@ -9,6 +11,7 @@ export const AVAILABLE_MODELS = [
   { value: 'mediapipe', label: 'MediaPipe' },
   { value: 'rtmpose', label: 'RTMPose' },
   { value: 'yolo3d', label: 'YOLO-NAS-Pose' },
+  { value: 'yolo_tcpformer', label: 'YOLO+TCPFormer' },
 ] as const;
 
 export type ModelType = typeof AVAILABLE_MODELS[number]['value'];
@@ -27,10 +30,24 @@ interface Stream {
 
 function App() {
   const { socket, connected, poseResults, clearPoseResult, flushStream } = useWebSocket();
+  const { logs, clearLogs, subscribe: subscribeLogs, unsubscribe: unsubscribeLogs } = useLogStream(socket, connected);
   const [streams, setStreams] = useState<Stream[]>([]);
   const [selectedStream, setSelectedStream] = useState<string | null>(null);
   const [sidebarCollapsed, setSidebarCollapsed] = useState(false);
+  const [rightSidebarCollapsed, setRightSidebarCollapsed] = useState(true);
   const [switchingModels, setSwitchingModels] = useState<Map<string, string>>(new Map());
+
+  const toggleRightSidebar = useCallback(() => {
+    setRightSidebarCollapsed(prev => {
+      const nextCollapsed = !prev;
+      if (nextCollapsed) {
+        unsubscribeLogs();
+      } else {
+        subscribeLogs();
+      }
+      return nextCollapsed;
+    });
+  }, [subscribeLogs, unsubscribeLogs]);
 
   const addStream = (
     streamId: string,
@@ -96,6 +113,8 @@ function App() {
         <div style={{ position: 'absolute', width: 280, height: 280, borderRadius: '50%', background: 'radial-gradient(circle, rgba(255,159,10,0.12) 0%, transparent 60%)', top: '20%', right: '20%', animation: 'orbMove4 28s ease-in-out infinite', filter: 'blur(8px)' }} />
       </div>
 
+
+
       <header className="app-header">
         <h1>Pose Spatial Studio</h1>
         <div className="connection-status">
@@ -139,6 +158,21 @@ function App() {
             switchingModels={switchingModels}
           />
         </main>
+
+        <button
+          className="sidebar-toggle sidebar-toggle-right"
+          onClick={toggleRightSidebar}
+          title={rightSidebarCollapsed ? 'Show logs' : 'Hide logs'}
+          style={{ right: rightSidebarCollapsed ? 0 : 358 }}
+        >
+          {rightSidebarCollapsed ? '\u25C0' : '\u25B6'}
+        </button>
+
+        <aside className={`right-sidebar ${rightSidebarCollapsed ? 'right-sidebar-collapsed' : ''}`}>
+          {!rightSidebarCollapsed && (
+            <LogPanel logs={logs} onClear={clearLogs} />
+          )}
+        </aside>
       </div>
     </div>
   );

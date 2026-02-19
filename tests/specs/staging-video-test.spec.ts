@@ -11,6 +11,8 @@ import path from 'path';
 test.describe('Staging Video Upload Test', () => {
 
   test('should process video and return pose results', async ({ page }) => {
+    test.setTimeout(120_000);
+
     // Navigate to the app
     await page.goto('/');
     await page.waitForLoadState('networkidle');
@@ -48,18 +50,36 @@ test.describe('Staging Video Upload Test', () => {
     // Step 6: Verify stream appears in the active streams list
     await expect(page.locator('.stream-item', { hasText: 'video-test-mp4' })).toBeVisible({ timeout: 30000 });
 
-    // Step 7: Wait for pose processing (give it time to process frames)
-    await page.waitForTimeout(10000);
+    // Step 7: Verify the stream is active
+    await expect(page.locator('.status-badge.active')).toBeVisible({ timeout: 5000 });
 
-    // Step 8: Take screenshot for visual verification
+    // Step 8: Click Play to start video playback and frame processing
+    const playBtn = page.locator('button.btn-primary', { hasText: /Play/i });
+    await expect(playBtn).toBeVisible({ timeout: 5_000 });
+    await playBtn.click();
+
+    // Step 9: Wait for pose data — "LIVE" indicator proves backend is returning pose results
+    await expect(page.locator('text=LIVE').first()).toBeVisible({ timeout: 30_000 });
+
+    // Step 10: Allow frames to process for rendering
+    await page.waitForTimeout(5_000);
+
+    // Step 11: Screenshot in Avatar mode (default)
     await page.screenshot({
-      path: 'results/staging-video-test.png',
+      path: 'results/staging-video-avatar.png',
       fullPage: true
     });
 
-    // Step 9: Verify the stream is active
-    await expect(page.locator('.status-badge.active')).toBeVisible({ timeout: 5000 });
+    // Step 12: Switch to Skeleton mode and screenshot
+    const rendererToggle = page.locator('button[title*="Switch to"]');
+    await rendererToggle.click();
+    await page.waitForTimeout(2_000);
 
-    console.log('✓ Staging video test passed — pose detection working via staging backend');
+    await page.screenshot({
+      path: 'results/staging-video-skeleton.png',
+      fullPage: true
+    });
+
+    console.log('✓ Staging video test passed — pose detection, avatar and skeleton rendering verified via staging backend');
   });
 });

@@ -11,10 +11,12 @@ from typing import Dict, Any, Tuple
 from processors.mediapipe_processor import MediaPipeProcessor
 from processors.rtmpose_processor import RTMPoseProcessor
 from processors.yolo_pose_processor import YoloPoseProcessor
+from processors.yolo_tcpformer_processor import YoloTCPFormerProcessor
 from processors.image_processor import ImageProcessor
 from processors.base_processor import BaseProcessor
 from processors.data_processor import DataProcessor
 from config import DEFAULT_CONFIG, POSE_WORKERS
+from utils.log_streamer import SocketIOLogHandler
 
 logger = logging.getLogger(__name__)
 
@@ -28,6 +30,7 @@ class WebSocketHandler:
         self._active_streams: set = set()  # processor_ids currently being processed
         self._stream_metrics: Dict[str, Dict[str, Any]] = {}
         self._last_stats_log: float = 0
+        self._log_handlers: Dict[str, SocketIOLogHandler] = {}  # sid -> handler
         logger.info(f"Thread pool initialized with {POSE_WORKERS} workers")
         self.setup_handlers()
     
@@ -42,11 +45,17 @@ class WebSocketHandler:
         async def disconnect(sid):
             logger.info(f"[DISC] Client disconnected: {sid}")
             logger.debug(f"[DISC] Cleaning up processors for client {sid}")
-            
+
             processors_to_cleanup = [pid for pid in self.processors.keys() if pid.startswith(f"{sid}_")]
             logger.debug(f"[DISC] Found {len(processors_to_cleanup)} processors to cleanup: {processors_to_cleanup}")
             for processor_id in processors_to_cleanup:
                 self.cleanup_processor(processor_id)
+
+            # Clean up log handler if subscribed
+            handler = self._log_handlers.pop(sid, None)
+            if handler:
+                logging.getLogger().removeHandler(handler)
+                handler.close()
 
         @self.sio.event
         async def initialize_stream(sid, data):
@@ -103,10 +112,13 @@ class WebSocketHandler:
                     elif processor_type == 'yolo3d':
                         logger.info(f"[INIT] Creating YOLO-NAS-Pose processor")
                         processor_pipeline['pose_processor'] = YoloPoseProcessor(processor_id, processor_config)
+                    elif processor_type == 'yolo_tcpformer':
+                        logger.info(f"[INIT] Creating YOLO+TCPFormer processor")
+                        processor_pipeline['pose_processor'] = YoloTCPFormerProcessor(processor_id, processor_config)
                     else:
                         await self.sio.emit('stream_error', {
                             'stream_id': stream_id,
-                            'message': f'Unknown processor type: {processor_type}. Use "mediapipe", "rtmpose", or "yolo3d" in config.'
+                            'message': f'Unknown processor type: {processor_type}. Use "mediapipe", "rtmpose", "yolo3d", or "yolo_tcpformer" in config.'
                         }, room=sid)
                         return
                 
@@ -208,6 +220,10 @@ class WebSocketHandler:
                     current_type = 'mediapipe'
                 elif isinstance(current_pose, RTMPoseProcessor):
                     current_type = 'rtmpose'
+                elif isinstance(current_pose, YoloTCPFormerProcessor):
+                    current_type = 'yolo_tcpformer'
+                elif isinstance(current_pose, YoloPoseProcessor):
+                    current_type = 'yolo3d'
 
                 # Skip if already using the requested model
                 if current_type == new_processor_type:
@@ -239,6 +255,10 @@ class WebSocketHandler:
                     new_pose = MediaPipeProcessor(processor_id, processor_config)
                 elif new_processor_type == 'rtmpose':
                     new_pose = RTMPoseProcessor(processor_id, processor_config)
+                elif new_processor_type == 'yolo3d':
+                    new_pose = YoloPoseProcessor(processor_id, processor_config)
+                elif new_processor_type == 'yolo_tcpformer':
+                    new_pose = YoloTCPFormerProcessor(processor_id, processor_config)
                 else:
                     await self.sio.emit('stream_error', {
                         'stream_id': stream_id,
@@ -299,7 +319,29 @@ class WebSocketHandler:
             except Exception as e:
                 logger.error(f"[FLUSH] Error: {e}")
                 await self.sio.emit('error', {'message': f'Flush error: {str(e)}'}, room=sid)
-    
+
+        @self.sio.event
+        async def subscribe_logs(sid, data=None):
+            """Client requests to start receiving log stream."""
+            if sid in self._log_handlers:
+                return
+            level_name = (data or {}).get('level', 'INFO')
+            level = getattr(logging, level_name.upper(), logging.INFO)
+            loop = asyncio.get_event_loop()
+            handler = SocketIOLogHandler(self.sio, sid, level=level, loop=loop)
+            self._log_handlers[sid] = handler
+            logging.getLogger().addHandler(handler)
+            logger.info(f"[LOGS] Client {sid} subscribed to log stream (level={level_name})")
+
+        @self.sio.event
+        async def unsubscribe_logs(sid, data=None):
+            """Client requests to stop receiving log stream."""
+            handler = self._log_handlers.pop(sid, None)
+            if handler:
+                logging.getLogger().removeHandler(handler)
+                handler.close()
+                logger.info(f"[LOGS] Client {sid} unsubscribed from log stream")
+
     async def _process_latest_frame(self, processor_id: str):
         """Process the latest frame for a stream, then check for newer ones."""
         try:
@@ -419,6 +461,10 @@ class WebSocketHandler:
             logger.debug(f"[CLEANUP] Processor {processor_id} not found (already cleaned up?)")
     
     def cleanup_all(self):
+        for _, handler in list(self._log_handlers.items()):
+            logging.getLogger().removeHandler(handler)
+            handler.close()
+        self._log_handlers.clear()
         for processor_id in list(self.processors.keys()):
             self.cleanup_processor(processor_id)
         self._executor.shutdown(wait=False)

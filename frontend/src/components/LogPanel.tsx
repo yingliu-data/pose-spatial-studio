@@ -1,9 +1,30 @@
 import { useEffect, useRef, useState } from 'react';
 import { LogEntry } from '@/hooks/useLogStream';
 
+const MAX_MESSAGE_LENGTH = 200;
+
 interface LogPanelProps {
   logs: LogEntry[];
   onClear: () => void;
+}
+
+function LogMessage({ message }: { message: string }) {
+  const [expanded, setExpanded] = useState(false);
+  const truncated = message.length > MAX_MESSAGE_LENGTH;
+
+  if (!truncated || expanded) {
+    return (
+      <span className="log-message" onClick={truncated ? () => setExpanded(false) : undefined}>
+        {message}
+      </span>
+    );
+  }
+
+  return (
+    <span className="log-message log-message-truncated" onClick={() => setExpanded(true)}>
+      {message.slice(0, MAX_MESSAGE_LENGTH)}...
+    </span>
+  );
 }
 
 export function LogPanel({ logs, onClear }: LogPanelProps) {
@@ -44,7 +65,7 @@ export function LogPanel({ logs, onClear }: LogPanelProps) {
             <span className={`log-level log-level-${entry.level.toLowerCase()}`}>
               {entry.level}
             </span>
-            <span className="log-message">{entry.message}</span>
+            <LogMessage message={entry.message} />
           </div>
         ))}
         <div ref={bottomRef} />

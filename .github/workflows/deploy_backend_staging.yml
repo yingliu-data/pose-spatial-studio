@@ -89,10 +89,9 @@ jobs:
               echo "✓ YOLO weights already cached"
             fi
 
-            echo "=== Restarting app.py ==="
-            docker exec $CONTAINER bash -c "pkill -f 'python3.*app.py'" || true
-            sleep 2
-            docker start $CONTAINER 2>/dev/null || true
+            echo "=== Restarting container (clears zombie processes) ==="
+            docker restart $CONTAINER
+            sleep 3
             docker exec -d $CONTAINER bash -c "cd /root/backend && mkdir -p logs && python3 app.py >> logs/app.log 2>&1"
 
             echo "=== Waiting for startup ==="

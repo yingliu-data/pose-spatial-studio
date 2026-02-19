@@ -39,7 +39,7 @@ def _get_gpu_info() -> dict:
 @asynccontextmanager
 async def lifespan(app: FastAPI):
     gpu_info = _get_gpu_info()
-    logger.info(f"Starting Pose Vision Studio v1.1")
+    logger.info(f"Starting Pose Spatial Studio v1.2.2")
     logger.info(f"Host: {config.HOST}:{config.PORT}")
     logger.info(f"GPU: {gpu_info['device']} | CUDA: {gpu_info['cuda_available']} | Providers: {gpu_info['providers']}")
     yield
@@ -48,7 +48,7 @@ async def lifespan(app: FastAPI):
         websocket_handler.cleanup_all()
 
 app = FastAPI(
-    title="Pose Vision Studio API",
+    title="Pose Spatial Studio API",
     version="1.2.2",
     description="Real-time 3D pose estimation and visualization",
     lifespan=lifespan
@@ -74,7 +74,7 @@ websocket_handler = WebSocketHandler(sio)
 @app.get("/")
 async def root():
     return {
-        "message": "Pose Vision Studio API", 
+        "message": "Pose Spatial Studio API",
         "version": "1.2.2",
         "status": "running"
     }

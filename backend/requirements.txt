@@ -24,6 +24,17 @@ scipy
 scikit-learn
 scikit-image
 tqdm
+psutil
+hydra-core
+omegaconf
+torchmetrics
+Deprecated
+boto3
+tensorboard
+termcolor
+werkzeug
+jsonschema
+matplotlib
 
 # CLIP for image retrieval
 git+https://github.com/openai/CLIP.git

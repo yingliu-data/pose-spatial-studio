@@ -47,6 +47,7 @@ export function Controls({
   });
   const [isCreating, setIsCreating] = useState(false);
   const [loadingMessage, setLoadingMessage] = useState<string>('');
+  const [capacityMessage, setCapacityMessage] = useState<string>('');
   const { devices, loading: devicesLoading } = useCameraDevices();
 
   const handleConfigFileChange = async (e: React.ChangeEvent<HTMLInputElement>) => {
@@ -87,6 +88,7 @@ export function Controls({
 
     setIsCreating(true);
     setLoadingMessage('Initializing...');
+    setCapacityMessage('');
 
     try {
       // Merge model type into processor config
@@ -110,11 +112,16 @@ export function Controls({
       );
 
       if (!result.success) {
-        alert(`Failed to initialize stream: ${result.message}`);
+        if (result.code === 'CAPACITY_FULL') {
+          setCapacityMessage(result.message);
+        } else {
+          alert(`Failed to initialize stream: ${result.message}`);
+        }
         setIsCreating(false);
         setLoadingMessage('');
         return;
       }
+      setCapacityMessage('');
 
       // If backend initialization succeeded, add to frontend
       const selectedDevice = devices.find(d => d.deviceId === formData.deviceId);
@@ -264,11 +271,21 @@ export function Controls({
             </small>
           </div>
 
+          {capacityMessage && (
+            <div className="capacity-message">
+              <span className="capacity-icon">⏳</span>
+              <div>
+                <strong>Server at capacity</strong>
+                <p>{capacityMessage}</p>
+              </div>
+            </div>
+          )}
+
           <button
             className="btn btn-success btn-block"
             onClick={handleCreateStream}
             disabled={
-              !formData.streamId.trim() || 
+              !formData.streamId.trim() ||
               (formData.sourceType === 'camera' && (!formData.deviceId || devicesLoading)) ||
               (formData.sourceType === 'video' && !formData.videoFile) ||
               isCreating

@@ -48,7 +48,7 @@ export default defineConfig({
 
   webServer: [
     {
-      command: 'cd ../backend && ./run_server.sh',
+      command: 'cd ../backend && MAX_CONCURRENT_STREAMS=10 ./run_server.sh',
       url: 'http://localhost:49101',
       reuseExistingServer: !process.env.CI,
       timeout: 120 * 1000,

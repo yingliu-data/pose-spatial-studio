@@ -23,6 +23,9 @@ DEBUG = False
 # Thread pool workers for concurrent stream processing (tunable via env var)
 POSE_WORKERS = int(os.getenv("POSE_WORKERS", str(min(os.cpu_count() or 4, 16))))
 
+# Maximum number of concurrent streams allowed server-wide
+MAX_CONCURRENT_STREAMS = int(os.getenv("MAX_CONCURRENT_STREAMS", "3"))
+
 CORS_ORIGINS = [
     "http://localhost:8585",
     "http://127.0.0.1:8585",

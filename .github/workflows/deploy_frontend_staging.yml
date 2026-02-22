@@ -48,7 +48,7 @@ jobs:
       - name: Configure SSH for Cloudflare
         run: |
           mkdir -p ~/.ssh
-          cat << EOF >> ~/.ssh/config
+          cat << 'EOF' >> ~/.ssh/config
           Host vm-ssh
             HostName ${{ secrets.SSH_HOST }}
             User ${{ secrets.SSH_USER }}

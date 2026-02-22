@@ -36,7 +36,7 @@ jobs:
         run: |
           BACKEND_HOST="${{ inputs.backend_host || 'pose-backend-ssh.yingliu.site' }}"
           mkdir -p ~/.ssh
-          cat << EOF >> ~/.ssh/config
+          cat << 'EOF' >> ~/.ssh/config
           Host pose-backend
             HostName pose-backend-ssh.yingliu.site
             User root

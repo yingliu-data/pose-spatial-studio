@@ -4,6 +4,17 @@ All notable changes to the Pose Spatial Studio project will be documented in thi
 
 The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.0.0/).
 
+## [1.3.5] - 22 February 2026
+
+### Added
+- Server-wide concurrent stream limit (default 3): rejects new streams with `CAPACITY_FULL` error when at capacity
+- Frontend inline capacity message (amber banner) instead of alert when server is full
+- `MAX_CONCURRENT_STREAMS` env var for configurable stream limit
+- `/health` endpoint now reports `max_concurrent_streams` in stats
+
+### Fixed
+- CI/CD deploy workflows: add Cloudflare Access service token auth (`--id`/`--secret`) to all 4 deploy pipelines for SSH tunnel authentication
+
 ## [1.3.4] - 19 February 2026
 
 ### Changed

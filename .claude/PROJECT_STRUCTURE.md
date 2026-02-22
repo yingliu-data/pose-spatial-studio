@@ -61,7 +61,8 @@ pose-spatial-studio/
 ├── .github/workflows/
 │   ├── deploy_backend.yml            # CI/CD: rsync → docker cp → restart in container (main)
 │   ├── deploy_backend_staging.yml    # CI/CD: same as above for staging container (staging)
-│   └── deploy_frontend.yml           # CI/CD: build → rsync → nginx reload
+│   ├── deploy_frontend.yml           # CI/CD: build → rsync → nginx reload (main)
+│   └── deploy_frontend_staging.yml   # CI/CD: same as above for staging (staging)
 │
 ├── .claude/
 │   ├── PROJECT_STRUCTURE.md          # This file
@@ -94,6 +95,7 @@ pose-spatial-studio/
 **config.py** - Centralized settings with env var support:
 - `POSE_STUDIO_HOST` (default `0.0.0.0`), `POSE_STUDIO_PORT` (default `49101`)
 - `POSE_WORKERS` — thread pool size for concurrent stream processing (default `min(cpu_count, 16)`, tunable via env var)
+- `MAX_CONCURRENT_STREAMS` — server-wide concurrent stream limit (default `3`, tunable via env var)
 - BLAS thread pinning (`OMP_NUM_THREADS=1`, `MKL_NUM_THREADS=1`, `OPENBLAS_NUM_THREADS=1`) to prevent per-operation thread explosion
 - CORS origins: `localhost:8585`, `robot.yingliu.site`
 - MediaPipe params, FPS, JPEG quality, max streams
@@ -216,7 +218,7 @@ VM1 (Frontend Edge)          VM2 (GPU Backend)
 |-------|---------|
 | `connection_status` | `{ status, sid }` |
 | `stream_initialized` | `{ stream_id, status, message, processor_type }` |
-| `stream_error` | `{ stream_id, message }` |
+| `stream_error` | `{ stream_id, message, code?, active_streams?, max_streams? }` |
 | `pose_result` | `{ stream_id, frame (base64), pose_data, timestamp_ms }` |
 | `model_switched` | `{ stream_id, processor_type, message }` |
 | `error` | `{ message }` |
@@ -232,6 +234,7 @@ MIN_TRACKING_CONFIDENCE = 0.5
 TARGET_FPS = 15
 JPEG_QUALITY = 80
 MAX_STREAMS = 10
+MAX_CONCURRENT_STREAMS = 3  # Server-wide limit, env var override
 ```
 
 ### Frontend (environment files)
@@ -255,7 +258,7 @@ MAX_STREAMS = 10
 
 **Testing:** Playwright (automated UI testing), Playwright MCP (Claude Code integration)
 
-**CI/CD:** GitHub Actions, Cloudflare Tunnels (SSH access), rsync deployment
+**CI/CD:** GitHub Actions, Cloudflare Tunnels (SSH via cloudflared + Access service tokens), rsync deployment
 
 **Infrastructure:** Nginx, Docker, NVIDIA CUDA, Cloudflare (TLS, DDoS, WAF)
 

@@ -44,21 +44,8 @@ jobs:
           EOF
           chmod 600 ~/.ssh/config
 
-      - name: Debug - cloudflared version
-        run: cloudflared --version
-
-      - name: Debug - SSH config
-        run: cat ~/.ssh/config
-
-      - name: Debug - test Cloudflare Access
-        run: |
-          curl -sv "https://pose-backend-ssh.yingliu.site" \
-            -H "CF-Access-Client-Id: ${{ secrets.CF_ACCESS_CLIENT_ID }}" \
-            -H "CF-Access-Client-Secret: ${{ secrets.CF_ACCESS_CLIENT_SECRET }}" \
-            2>&1 | head -50 || true
-
       - name: Test SSH via Cloudflare
-        run: ssh -v -o StrictHostKeyChecking=accept-new pose-backend "echo 'SSH OK via Cloudflare'"
+        run: ssh -o StrictHostKeyChecking=accept-new pose-backend "echo 'SSH OK via Cloudflare'"
 
       - name: Deploy to staging container and restart
         run: |

@@ -14,7 +14,7 @@ from processors.yolo_tcpformer_processor import YoloTCPFormerProcessor
 from processors.image_processor import ImageProcessor
 from processors.base_processor import BaseProcessor
 from processors.data_processor import DataProcessor
-from config import DEFAULT_CONFIG, POSE_WORKERS
+from config import DEFAULT_CONFIG, POSE_WORKERS, MAX_CONCURRENT_STREAMS
 from utils.log_streamer import SocketIOLogHandler
 
 logger = logging.getLogger(__name__)
@@ -82,6 +82,23 @@ class WebSocketHandler:
                         'stream_id': stream_id,
                         'status': 'already_exists',
                         'message': 'Stream already initialized'
+                    }, room=sid)
+                    return
+
+                # Enforce global concurrent stream limit
+                active_count = len(self.processors)
+                if active_count >= MAX_CONCURRENT_STREAMS:
+                    logger.warning(
+                        f"[INIT] Stream limit reached ({active_count}/{MAX_CONCURRENT_STREAMS}). "
+                        f"Rejecting stream {stream_id} from {sid}"
+                    )
+                    await self.sio.emit('stream_error', {
+                        'stream_id': stream_id,
+                        'message': f'Server at capacity ({active_count}/{MAX_CONCURRENT_STREAMS} streams active). '
+                                   f'You are in the queue — please wait for a slot to free up and try again.',
+                        'code': 'CAPACITY_FULL',
+                        'active_streams': active_count,
+                        'max_streams': MAX_CONCURRENT_STREAMS,
                     }, room=sid)
                     return
 
@@ -464,6 +481,7 @@ class WebSocketHandler:
     def get_stats(self) -> Dict[str, Any]:
         return {
             "active_processors": len(self.processors),
+            "max_concurrent_streams": MAX_CONCURRENT_STREAMS,
             "processor_ids": list(self.processors.keys()),
             "active_streams_processing": len(self._active_streams),
             "pending_frames": len(self._latest_frames),

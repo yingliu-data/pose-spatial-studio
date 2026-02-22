@@ -7,9 +7,9 @@ export class StreamInitService {
       processorConfig: Record<string, any> = {}, // Accept parsed config directly
       onProgress?: (message: string) => void, // Optional progress callback
       sourceType?: 'camera' | 'video'
-    ): Promise<{ success: boolean; message: string }> {
+    ): Promise<{ success: boolean; message: string; code?: string }> {
       return new Promise((resolve, reject) => {
-        
+
         const successHandler = (data: any) => {
           if (data.stream_id === streamId) {
             socket.off('stream_initialized', successHandler);
@@ -18,13 +18,13 @@ export class StreamInitService {
             resolve({ success: true, message: data.message });
           }
         };
-  
+
         const errorHandler = (data: any) => {
           if (data.stream_id === streamId) {
             socket.off('stream_initialized', successHandler);
             socket.off('stream_error', errorHandler);
             socket.off('stream_loading', loadingHandler);
-            resolve({ success: false, message: data.message });
+            resolve({ success: false, message: data.message, code: data.code });
           }
         };
 

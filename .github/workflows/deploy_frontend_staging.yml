@@ -48,11 +48,11 @@ jobs:
       - name: Configure SSH for Cloudflare
         run: |
           mkdir -p ~/.ssh
-          cat << 'EOF' >> ~/.ssh/config
+          cat << EOF >> ~/.ssh/config
           Host vm-ssh
             HostName ${{ secrets.SSH_HOST }}
             User ${{ secrets.SSH_USER }}
-            ProxyCommand cloudflared access ssh --hostname %h
+            ProxyCommand cloudflared access ssh --hostname %h --id ${{ secrets.CF_ACCESS_CLIENT_ID }} --secret ${{ secrets.CF_ACCESS_CLIENT_SECRET }}
           EOF
           chmod 600 ~/.ssh/config
 

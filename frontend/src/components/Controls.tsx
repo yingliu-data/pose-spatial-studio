@@ -44,12 +44,9 @@ export function Controls({ connected, socket }: ControlsProps) {
     if (!socket || !functionDef?.processorType) return;
     if (sourceType === 'video' && !videoFile) return;
 
-    setInitializing(true, 'Requesting camera access...');
+    if (sourceType === 'camera' && !deviceId) return;
 
-    if (sourceType === 'camera') {
-      await requestPermission();
-      if (!deviceId) return setInitializing(false);
-    }
+    setInitializing(true, 'Initializing...');
 
     setInitMessage('Initializing...');
 
@@ -128,14 +125,11 @@ export function Controls({ connected, socket }: ControlsProps) {
             <label>Source Type</label>
             <select
               value={sourceType}
-              onChange={(e) =>
-                setSourceConfig(
-                  e.target.value as 'camera' | 'video',
-                  '',
-                  '',
-                  null,
-                )
-              }
+              onChange={(e) => {
+                const newSource = e.target.value as 'camera' | 'video';
+                setSourceConfig(newSource, '', '', null);
+                if (newSource === 'camera') requestPermission();
+              }}
               disabled={isStreamActive}
             >
               <option value="camera">Camera</option>

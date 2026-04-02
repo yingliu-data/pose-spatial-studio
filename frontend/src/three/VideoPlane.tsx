@@ -8,14 +8,16 @@ interface VideoPlaneProps {
   width?: number;
   height?: number;
   position?: [number, number, number];
+  mirrored?: boolean;
 }
 
-export function VideoPlane({ 
-  videoElement, 
+export function VideoPlane({
+  videoElement,
   canvasElement,
-  width = 2, 
-  height = 1.5, 
-  position = [0, 0, -0.5] 
+  width = 2,
+  height = 1.5,
+  position = [0, 0, -0.5],
+  mirrored = false,
 }: VideoPlaneProps) {
   const meshRef = useRef<THREE.Mesh>(null);
   const textureRef = useRef<THREE.Texture | null>(null);
@@ -48,7 +50,7 @@ export function VideoPlane({
   });
 
   return (
-    <mesh ref={meshRef} position={position} rotation={[0, 0, 0]}>
+    <mesh ref={meshRef} position={position} rotation={[0, 0, 0]} scale={mirrored ? [-1, 1, 1] : [1, 1, 1]}>
       <planeGeometry args={[width, height]} />
       <meshBasicMaterial side={THREE.DoubleSide} transparent opacity={0.7} />
     </mesh>

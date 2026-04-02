@@ -9,7 +9,7 @@ interface View2DProps {
 
 export function View2D({ socket }: View2DProps) {
   const displayCanvasRef = useRef<HTMLCanvasElement>(null);
-  const { backendResult, functionDef, isStreamActive } = useAppStore();
+  const { backendResult, functionDef, isStreamActive, sourceType } = useAppStore();
 
   // Draw annotated frame onto the visible canvas
   useEffect(() => {
@@ -26,6 +26,17 @@ export function View2D({ socket }: View2DProps) {
     img.src = `data:image/jpeg;base64,${backendResult.frame}`;
   }, [backendResult]);
 
+  // Clear canvas to black when stream stops
+  useEffect(() => {
+    if (!isStreamActive && displayCanvasRef.current) {
+      const ctx = displayCanvasRef.current.getContext('2d');
+      if (ctx) {
+        ctx.fillStyle = '#000';
+        ctx.fillRect(0, 0, displayCanvasRef.current.width, displayCanvasRef.current.height);
+      }
+    }
+  }, [isStreamActive]);
+
   return (
     <div className="view-container" style={{ position: 'relative', width: '100%', height: '100%', minHeight: 400 }}>
       {isStreamActive && <CameraCapture socket={socket} />}
@@ -39,6 +50,7 @@ export function View2D({ socket }: View2DProps) {
           display: 'block',
           backgroundColor: '#000',
           borderRadius: 16,
+          transform: sourceType === 'camera' ? 'scaleX(-1)' : undefined,
         }}
       />
 

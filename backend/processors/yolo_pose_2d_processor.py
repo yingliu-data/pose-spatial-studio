@@ -73,7 +73,7 @@ class YoloPose2DProcessor(BaseProcessor):
 
         if result.keypoints is None or len(result.keypoints) == 0:
             return {
-                "processed_frame": annotated,
+                "processed_frame": cv2.resize(annotated, (640, 480)),
                 "data": {"landmarks": [], "num_poses": 0},
                 "timestamp_ms": timestamp_ms,
                 "processor_id": self.processor_id,
@@ -88,6 +88,8 @@ class YoloPose2DProcessor(BaseProcessor):
 
         # Build 2D landmarks
         landmarks_2d = self._build_2d_landmarks(kpts_2d, kpt_scores, w, h)
+
+        annotated = cv2.resize(annotated, (640, 480))
 
         return {
             "processed_frame": annotated,

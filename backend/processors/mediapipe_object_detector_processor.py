@@ -49,8 +49,8 @@ class MediaPipeObjectDetectorProcessor(BaseProcessor):
         pose_cfg = self.config['pose_processor']
         self.model_path = pose_cfg.get('object_detector_model_name',
                                        'efficientdet_lite2.tflite')
-        self.frame_width = int(pose_cfg.get('object_detector_frame_width', 448))
-        self.frame_height = int(pose_cfg.get('object_detector_frame_height', 448))
+        self.frame_width = int(pose_cfg.get('object_detector_frame_width', 640))
+        self.frame_height = int(pose_cfg.get('object_detector_frame_height', 480))
         self.min_detection_confidence = pose_cfg.get('min_detection_confidence', 0.5)
         self.max_results = int(pose_cfg.get('max_results', 10))
         self.device = pose_cfg.get('device', 'cpu')

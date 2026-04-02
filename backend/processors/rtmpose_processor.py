@@ -1,3 +1,4 @@
+import cv2
 from rtmlib import Wholebody3d, draw_skeleton
 from typing import Optional, List, Dict, Any
 from processors.base_processor import BaseProcessor
@@ -85,6 +86,7 @@ class RTMPoseProcessor(BaseProcessor):
             keypoints_3d[..., 2] = (z_pixel / _Z_INPUT_HALF - 1.0) * _Z_RANGE
 
         annotated_frame = draw_skeleton(frame, keypoints_2d, scores, kpt_thr=0.5)
+        annotated_frame = cv2.resize(annotated_frame, (640, 480))
 
         if keypoints_3d is None or len(keypoints_3d) == 0:
             return {

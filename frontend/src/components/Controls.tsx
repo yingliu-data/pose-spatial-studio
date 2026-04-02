@@ -13,22 +13,20 @@ interface ControlsProps {
 }
 
 export function Controls({ connected, socket }: ControlsProps) {
-  const {
-    activeFunction,
-    functionDef,
-    sourceType,
-    deviceId,
-    videoFile,
-    isStreamActive,
-    isInitializing,
-    initMessage,
-    selectFunction,
-    setSourceConfig,
-    setStreamActive,
-    setInitializing,
-    setInitMessage,
-    setBackendResult,
-  } = useAppStore();
+  const activeFunction = useAppStore((s) => s.activeFunction);
+  const functionDef = useAppStore((s) => s.functionDef);
+  const sourceType = useAppStore((s) => s.sourceType);
+  const deviceId = useAppStore((s) => s.deviceId);
+  const videoFile = useAppStore((s) => s.videoFile);
+  const isStreamActive = useAppStore((s) => s.isStreamActive);
+  const isInitializing = useAppStore((s) => s.isInitializing);
+  const initMessage = useAppStore((s) => s.initMessage);
+  const selectFunction = useAppStore((s) => s.selectFunction);
+  const setSourceConfig = useAppStore((s) => s.setSourceConfig);
+  const setStreamActive = useAppStore((s) => s.setStreamActive);
+  const setInitializing = useAppStore((s) => s.setInitializing);
+  const setInitMessage = useAppStore((s) => s.setInitMessage);
+  const setBackendResult = useAppStore((s) => s.setBackendResult);
 
   const { devices, loading: devicesLoading, requestPermission } = useCameraDevices();
 
@@ -113,9 +111,6 @@ export function Controls({ connected, socket }: ControlsProps) {
               <div className="function-label">{fn.label}</div>
               <div className="function-desc">{fn.description}</div>
             </div>
-            {fn.modelLabel && (
-              <div className="function-model-tag">{fn.modelLabel}</div>
-            )}
           </div>
         ))}
       </div>

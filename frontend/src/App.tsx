@@ -1,4 +1,4 @@
-import { useCallback } from 'react';
+import { useCallback, Component, type ReactNode } from 'react';
 import { useWebSocket } from '@/hooks/useWebSocket';
 import { useLogStream } from '@/hooks/useLogStream';
 import { Controls } from '@/components/Controls';
@@ -7,26 +7,42 @@ import { LogPanel } from '@/components/LogPanel';
 import { useAppStore } from '@/stores/appStore';
 import './App.css';
 
+class AppErrorBoundary extends Component<{ children: ReactNode }, { error: Error | null }> {
+  state = { error: null as Error | null };
+  static getDerivedStateFromError(error: Error) { return { error }; }
+  componentDidCatch(error: Error) { console.error('[App] Render crash:', error); }
+  render() {
+    if (this.state.error) {
+      return (
+        <div style={{ color: '#ff6b6b', padding: 40, textAlign: 'center', fontFamily: 'monospace' }}>
+          <h2>Something went wrong</h2>
+          <pre style={{ whiteSpace: 'pre-wrap', fontSize: 13, opacity: 0.7 }}>{this.state.error.message}</pre>
+        </div>
+      );
+    }
+    return this.props.children;
+  }
+}
+
 function App() {
   const { socket, connected } = useWebSocket();
   const { logs, clearLogs, subscribe: subscribeLogs, unsubscribe: unsubscribeLogs } = useLogStream(socket, connected);
 
-  const {
-    sidebarCollapsed,
-    rightSidebarCollapsed,
-    toggleSidebar,
-    toggleRightSidebar: storeToggleRight,
-  } = useAppStore();
+  // Use individual selectors to avoid re-rendering on every backendResult update
+  const sidebarCollapsed = useAppStore((s) => s.sidebarCollapsed);
+  const rightSidebarCollapsed = useAppStore((s) => s.rightSidebarCollapsed);
+  const toggleSidebar = useAppStore((s) => s.toggleSidebar);
+  const storeToggleRight = useAppStore((s) => s.toggleRightSidebar);
 
   const toggleRightSidebar = useCallback(() => {
-    const nextCollapsed = !rightSidebarCollapsed;
-    if (nextCollapsed) {
+    const isCollapsed = useAppStore.getState().rightSidebarCollapsed;
+    if (!isCollapsed) {
       unsubscribeLogs();
     } else {
       subscribeLogs();
     }
     storeToggleRight();
-  }, [rightSidebarCollapsed, subscribeLogs, unsubscribeLogs, storeToggleRight]);
+  }, [subscribeLogs, unsubscribeLogs, storeToggleRight]);
 
   return (
     <div className="app">
@@ -85,4 +101,12 @@ function App() {
   );
 }
 
-export default App;
+function AppWithErrorBoundary() {
+  return (
+    <AppErrorBoundary>
+      <App />
+    </AppErrorBoundary>
+  );
+}
+
+export default AppWithErrorBoundary;

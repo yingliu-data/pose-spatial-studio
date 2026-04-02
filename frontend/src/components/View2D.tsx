@@ -41,18 +41,34 @@ export function View2D({ socket }: View2DProps) {
     <div className="view-container" style={{ position: 'relative', width: '100%', height: '100%', minHeight: 400 }}>
       {isStreamActive && <CameraCapture socket={socket} />}
 
-      <canvas
-        ref={displayCanvasRef}
-        style={{
+      {!isStreamActive && !backendResult ? (
+        <div style={{
           width: '100%',
           height: '100%',
-          objectFit: 'contain',
-          display: 'block',
+          display: 'flex',
+          alignItems: 'center',
+          justifyContent: 'center',
           backgroundColor: '#000',
           borderRadius: 16,
-          transform: sourceType === 'camera' ? 'scaleX(-1)' : undefined,
-        }}
-      />
+          color: 'rgba(255,255,255,0.4)',
+          fontSize: 14,
+        }}>
+          Waiting for camera...
+        </div>
+      ) : (
+        <canvas
+          ref={displayCanvasRef}
+          style={{
+            width: '100%',
+            height: '100%',
+            objectFit: 'contain',
+            display: 'block',
+            backgroundColor: '#000',
+            borderRadius: 16,
+            transform: sourceType === 'camera' ? 'scaleX(-1)' : undefined,
+          }}
+        />
+      )}
 
       {/* Function label overlay */}
       <div style={{

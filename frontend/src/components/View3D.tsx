@@ -2,8 +2,17 @@ import { useState, useCallback, useEffect } from 'react';
 import { Socket } from 'socket.io-client';
 import { CameraCapture } from '@/components/CameraCapture';
 import { Skeleton3DViewer } from '@/components/Skeleton3DViewer';
+import { StreamInitService } from '@/services/streamInitService';
 import { useAppStore } from '@/stores/appStore';
+import { type ProcessorType } from '@/types/functions';
 import { type PoseResult } from '@/types/pose';
+
+const ACTIVE_STREAM_ID = 'active_stream';
+
+const POSE_3D_MODELS: { value: ProcessorType; label: string }[] = [
+  { value: 'mediapipe', label: 'MediaPipe' },
+  { value: 'rtmpose', label: 'YOLO + RTMPose' },
+];
 
 interface View3DProps {
   socket: Socket | null;
@@ -12,7 +21,8 @@ interface View3DProps {
 export function View3D({ socket }: View3DProps) {
   const [videoElement, setVideoElement] = useState<HTMLVideoElement | null>(null);
   const [processedCanvas, setProcessedCanvas] = useState<HTMLCanvasElement | null>(null);
-  const { backendResult, isStreamActive, rendererType, toggleRendererType, sourceType } = useAppStore();
+  const { backendResult, isStreamActive, rendererType, toggleRendererType, sourceType, pose3dProcessorType, setPose3dProcessorType } = useAppStore();
+  const [isSwitching, setIsSwitching] = useState(false);
 
   const onVideoReady = useCallback((video: HTMLVideoElement) => {
     setVideoElement(video);
@@ -81,11 +91,14 @@ export function View3D({ socket }: View3DProps) {
         </div>
       )}
 
-      {/* Function label */}
+      {/* Function label + model selector */}
       <div style={{
         position: 'absolute',
         top: 12,
         left: 14,
+        display: 'flex',
+        alignItems: 'center',
+        gap: 8,
         fontSize: 12,
         fontWeight: 600,
         color: 'rgba(255,255,255,0.7)',
@@ -94,7 +107,37 @@ export function View3D({ socket }: View3DProps) {
         borderRadius: 8,
         backdropFilter: 'blur(8px)',
       }}>
-        3D Pose Estimation
+        3D Pose
+        <select
+          value={pose3dProcessorType}
+          onChange={async (e) => {
+            const newType = e.target.value as ProcessorType;
+            setPose3dProcessorType(newType);
+            if (isStreamActive && socket) {
+              setIsSwitching(true);
+              try {
+                await StreamInitService.switchModel(socket, ACTIVE_STREAM_ID, newType);
+              } finally {
+                setIsSwitching(false);
+              }
+            }
+          }}
+          disabled={isSwitching}
+          style={{
+            background: 'rgba(255,255,255,0.1)',
+            border: '1px solid rgba(255,255,255,0.2)',
+            borderRadius: 4,
+            color: 'rgba(255,255,255,0.8)',
+            fontSize: 11,
+            padding: '2px 4px',
+            cursor: 'pointer',
+          }}
+        >
+          {POSE_3D_MODELS.map((m) => (
+            <option key={m.value} value={m.value}>{m.label}</option>
+          ))}
+        </select>
+        {isSwitching && <span style={{ fontSize: 10, color: '#ff9f0a' }}>Switching...</span>}
       </div>
 
       {/* Avatar/Skeleton toggle */}

@@ -2,6 +2,7 @@ import { create } from 'zustand';
 import {
   type AppFunction,
   type FunctionDefinition,
+  type ProcessorType,
   FUNCTION_DEFINITIONS,
 } from '@/types/functions';
 import { type BackendResult } from '@/types/pose';
@@ -31,6 +32,7 @@ interface AppState {
   sidebarCollapsed: boolean;
   rightSidebarCollapsed: boolean;
   rendererType: RendererType;
+  pose3dProcessorType: ProcessorType;
 
   // Actions
   selectFunction: (fn: AppFunction) => void;
@@ -48,6 +50,7 @@ interface AppState {
   toggleSidebar: () => void;
   toggleRightSidebar: () => void;
   toggleRendererType: () => void;
+  setPose3dProcessorType: (type: ProcessorType) => void;
 }
 
 export const useAppStore = create<AppState>((set) => ({
@@ -64,6 +67,7 @@ export const useAppStore = create<AppState>((set) => ({
   sidebarCollapsed: false,
   rightSidebarCollapsed: true,
   rendererType: 'stickball',
+  pose3dProcessorType: 'mediapipe',
 
   selectFunction: (fn) =>
     set({
@@ -108,4 +112,6 @@ export const useAppStore = create<AppState>((set) => ({
     set((s) => ({
       rendererType: s.rendererType === 'avatar' ? 'stickball' : 'avatar',
     })),
+
+  setPose3dProcessorType: (type) => set({ pose3dProcessorType: type }),
 }));

@@ -89,13 +89,17 @@ When a ticket depends on another ticket still in code review, branch from that t
 
 ## Step 3: Implement Changes
 
-**Current default model:** MediaPipe (with GPU delegate). Backend processor: [backend/processors/mediapipe_processor.py](backend/processors/mediapipe_processor.py).
+**Function modes and processors** are defined in [frontend/src/types/functions.ts](frontend/src/types/functions.ts):
 
-Alternative processors:
-- RTMPose3D → [backend/processors/rtmpose_processor.py](backend/processors/rtmpose_processor.py) (`processor_type: "rtmpose"`)
-- YOLO + TCPFormer → [backend/processors/yolo_tcpformer_processor.py](backend/processors/yolo_tcpformer_processor.py) (`processor_type: "yolo_tcpformer"`)
+| Function | Default Processor | Backend File |
+|----------|------------------|--------------|
+| 2D Pose Estimation | `yolo_pose_2d` | `processors/yolo_pose_2d_processor.py` |
+| 3D Pose Estimation | `mediapipe` (switchable to `rtmpose`) | `processors/mediapipe_processor.py`, `processors/rtmpose_processor.py` |
+| Object Detection | `mediapipe_object_detection` | `processors/mediapipe_object_detector_processor.py` |
+| Hand Gesture Recognition | `mediapipe_hand_gesture` | `processors/mediapipe_hand_gesture_processor.py` |
+| Avatar Voice Control | — (placeholder) | — |
 
-Available models are defined in `AVAILABLE_MODELS` in [frontend/src/App.tsx](frontend/src/App.tsx).
+State management: [frontend/src/stores/appStore.ts](frontend/src/stores/appStore.ts) (Zustand store).
 
 Follow these guidelines during implementation:
 

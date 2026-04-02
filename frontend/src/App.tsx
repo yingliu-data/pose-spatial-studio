@@ -1,106 +1,48 @@
-import { useState, useCallback } from 'react';
+import { useCallback, Component, type ReactNode } from 'react';
 import { useWebSocket } from '@/hooks/useWebSocket';
 import { useLogStream } from '@/hooks/useLogStream';
 import { Controls } from '@/components/Controls';
-import { MultiViewGrid } from '@/components/MultiViewGrid';
+import { FunctionViewer } from '@/components/FunctionViewer';
 import { LogPanel } from '@/components/LogPanel';
-import { StreamInitService } from '@/services/streamInitService';
+import { useAppStore } from '@/stores/appStore';
 import './App.css';
 
-export const AVAILABLE_MODELS = [
-  { value: 'mediapipe', label: 'MediaPipe' },
-  { value: 'rtmpose', label: 'RTMPose' },
-  { value: 'yolo_tcpformer', label: 'YOLO+TCPFormer' },
-] as const;
-
-export type ModelType = typeof AVAILABLE_MODELS[number]['value'];
-
-interface Stream {
-  streamId: string;
-  sourceType: 'camera' | 'video';
-  deviceId?: string;
-  deviceLabel?: string;
-  videoFile?: File;
-  processorConfig?: Record<string, any>;
-  modelType: ModelType;
-  active: boolean;
-  createdAt: number;
+class AppErrorBoundary extends Component<{ children: ReactNode }, { error: Error | null }> {
+  state = { error: null as Error | null };
+  static getDerivedStateFromError(error: Error) { return { error }; }
+  componentDidCatch(error: Error) { console.error('[App] Render crash:', error); }
+  render() {
+    if (this.state.error) {
+      return (
+        <div style={{ color: '#ff6b6b', padding: 40, textAlign: 'center', fontFamily: 'monospace' }}>
+          <h2>Something went wrong</h2>
+          <pre style={{ whiteSpace: 'pre-wrap', fontSize: 13, opacity: 0.7 }}>{this.state.error.message}</pre>
+        </div>
+      );
+    }
+    return this.props.children;
+  }
 }
 
 function App() {
-  const { socket, connected, poseResults, clearPoseResult, flushStream } = useWebSocket();
+  const { socket, connected } = useWebSocket();
   const { logs, clearLogs, subscribe: subscribeLogs, unsubscribe: unsubscribeLogs } = useLogStream(socket, connected);
-  const [streams, setStreams] = useState<Stream[]>([]);
-  const [selectedStream, setSelectedStream] = useState<string | null>(null);
-  const [sidebarCollapsed, setSidebarCollapsed] = useState(false);
-  const [rightSidebarCollapsed, setRightSidebarCollapsed] = useState(true);
-  const [switchingModels, setSwitchingModels] = useState<Map<string, string>>(new Map());
+
+  // Use individual selectors to avoid re-rendering on every backendResult update
+  const sidebarCollapsed = useAppStore((s) => s.sidebarCollapsed);
+  const rightSidebarCollapsed = useAppStore((s) => s.rightSidebarCollapsed);
+  const toggleSidebar = useAppStore((s) => s.toggleSidebar);
+  const storeToggleRight = useAppStore((s) => s.toggleRightSidebar);
 
   const toggleRightSidebar = useCallback(() => {
-    setRightSidebarCollapsed(prev => {
-      const nextCollapsed = !prev;
-      if (nextCollapsed) {
-        unsubscribeLogs();
-      } else {
-        subscribeLogs();
-      }
-      return nextCollapsed;
-    });
-  }, [subscribeLogs, unsubscribeLogs]);
-
-  const addStream = (
-    streamId: string,
-    sourceType: 'camera' | 'video',
-    deviceId?: string,
-    deviceLabel?: string,
-    videoFile?: File,
-    processorConfig?: Record<string, any>,
-    modelType?: ModelType
-  ): boolean => {
-    if (streams.find(s => s.streamId === streamId)) {
-      alert(`Stream "${streamId}" already exists`);
-      return false;
+    const isCollapsed = useAppStore.getState().rightSidebarCollapsed;
+    if (!isCollapsed) {
+      unsubscribeLogs();
+    } else {
+      subscribeLogs();
     }
-    setStreams(prev => [...prev, { streamId, sourceType, deviceId, deviceLabel, videoFile, processorConfig, modelType: modelType || 'mediapipe', active: true, createdAt: Date.now() }]);
-    return true;
-  };
-
-  const removeStream = (streamId: string) => {
-    setStreams(prev => prev.filter(s => s.streamId !== streamId));
-    clearPoseResult(streamId);
-    if (selectedStream === streamId) setSelectedStream(null);
-  };
-
-  const handleSwitchModel = useCallback(async (streamId: string, newModel: ModelType) => {
-    if (!socket) return;
-
-    setSwitchingModels(prev => new Map(prev).set(streamId, `Switching to ${newModel}...`));
-
-    try {
-      const result = await StreamInitService.switchModel(
-        socket,
-        streamId,
-        newModel,
-        (message) => setSwitchingModels(prev => new Map(prev).set(streamId, message))
-      );
-
-      if (result.success) {
-        setStreams(prev => prev.map(s =>
-          s.streamId === streamId ? { ...s, modelType: newModel } : s
-        ));
-      } else {
-        console.error(`[App] Model switch failed: ${result.message}`);
-      }
-    } catch (err: any) {
-      console.error(`[App] Model switch error:`, err);
-    } finally {
-      setSwitchingModels(prev => {
-        const next = new Map(prev);
-        next.delete(streamId);
-        return next;
-      });
-    }
-  }, [socket]);
+    storeToggleRight();
+  }, [subscribeLogs, unsubscribeLogs, storeToggleRight]);
 
   return (
     <div className="app">
@@ -111,8 +53,6 @@ function App() {
         <div style={{ position: 'absolute', width: 350, height: 350, borderRadius: '50%', background: 'radial-gradient(circle, rgba(48,209,88,0.15) 0%, transparent 60%)', top: '50%', left: '40%', animation: 'orbMove3 22s ease-in-out infinite', filter: 'blur(8px)' }} />
         <div style={{ position: 'absolute', width: 280, height: 280, borderRadius: '50%', background: 'radial-gradient(circle, rgba(255,159,10,0.12) 0%, transparent 60%)', top: '20%', right: '20%', animation: 'orbMove4 28s ease-in-out infinite', filter: 'blur(8px)' }} />
       </div>
-
-
 
       <header className="app-header">
         <h1>Pose Spatial Studio</h1>
@@ -125,21 +65,13 @@ function App() {
       <div className="app-content">
         <aside className={`sidebar ${sidebarCollapsed ? 'sidebar-collapsed' : ''}`}>
           {!sidebarCollapsed && (
-            <Controls
-              streams={streams}
-              selectedStream={selectedStream}
-              onStreamSelect={setSelectedStream}
-              onAddStream={addStream}
-              onRemoveStream={removeStream}
-              connected={connected}
-              socket={socket}
-            />
+            <Controls connected={connected} socket={socket} />
           )}
         </aside>
 
         <button
           className="sidebar-toggle"
-          onClick={() => setSidebarCollapsed(prev => !prev)}
+          onClick={toggleSidebar}
           title={sidebarCollapsed ? 'Show sidebar' : 'Hide sidebar'}
           style={{ left: sidebarCollapsed ? 0 : 298 }}
         >
@@ -147,15 +79,7 @@ function App() {
         </button>
 
         <main className="main-content">
-          <MultiViewGrid
-            socket={socket}
-            streams={streams}
-            poseResults={poseResults}
-            selectedStream={selectedStream}
-            onFlushStream={flushStream}
-            onSwitchModel={handleSwitchModel}
-            switchingModels={switchingModels}
-          />
+          <FunctionViewer socket={socket} />
         </main>
 
         <button
@@ -177,5 +101,12 @@ function App() {
   );
 }
 
-export default App;
+function AppWithErrorBoundary() {
+  return (
+    <AppErrorBoundary>
+      <App />
+    </AppErrorBoundary>
+  );
+}
 
+export default AppWithErrorBoundary;

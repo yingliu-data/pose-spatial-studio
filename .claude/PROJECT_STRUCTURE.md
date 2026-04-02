@@ -5,199 +5,248 @@
 ```
 pose-spatial-studio/
 ├── backend/
-│   ├── app.py                        # FastAPI + Socket.IO server, health endpoint
-│   ├── config.py                     # Settings (host, port, CORS, MediaPipe params)
-│   ├── requirements.txt              # Python deps (FastAPI, MediaPipe, torch, CLIP)
+│   ├── app.py                        # FastAPI + Socket.IO server, health/info endpoints
+│   ├── config.py                     # Settings (host, port, CORS, GPU detection, config merging)
+│   ├── config_template.json          # Default processor configuration template
+│   ├── requirements.txt              # Python deps (FastAPI, MediaPipe, torch, rtmlib, ultralytics)
 │   ├── run_server.sh                 # Local dev startup script
+│   ├── yolov8m-pose.pt              # YOLOv8-M Pose model weights
 │   ├── core/
-│   │   └── websocket_handler.py      # Socket.IO stream management
+│   │   └── websocket_handler.py      # Socket.IO stream management, processor pipeline, log streaming
 │   ├── processors/
+│   │   ├── __init__.py
 │   │   ├── base_processor.py         # Abstract processor interface
-│   │   ├── image_processor.py        # Frame preprocessing
-│   │   ├── mediapipe_processor.py    # Pose estimation (2D/3D landmarks)
-│   │   ├── rtmpose_processor.py      # RTMPose3D via rtmlib (RTMW3D-X + YOLOX-M)
-│   │   └── yolo_tcpformer_processor.py # YOLOv8-Pose 2D + TCPFormer 3D lifting (81-frame temporal)
+│   │   ├── data_processor.py         # Temporal smoothing, windowing, feature extraction
+│   │   ├── image_processor.py        # Frame preprocessing (resize, flip, normalize)
+│   │   ├── mediapipe_processor.py    # MediaPipe pose estimation (2D/3D landmarks)
+│   │   ├── mediapipe_object_detector_processor.py  # Object detection (EfficientDet)
+│   │   ├── mediapipe_hand_gesture_processor.py     # Hand gesture recognition
+│   │   ├── rtmpose_processor.py      # RTMPose3D via rtmlib (RTMW3D-X + YOLOX-M, FK output)
+│   │   ├── yolo_pose_2d_processor.py # YOLOv8-Pose 2D detection
+│   │   └── yolo_tcpformer_processor.py # YOLO 2D + TCPFormer 3D lifting (81-frame temporal)
 │   ├── utils/
-│   │   ├── cache.py                  # Caching utilities
-│   │   ├── locate_path.py            # Path resolution helpers
-│   │   └── logger.py                 # Structured logging
+│   │   ├── __init__.py
+│   │   ├── cache.py                  # Model caching utilities
+│   │   ├── filters.py               # MedianFilter, GaussianFilter for temporal smoothing
+│   │   ├── io.py                     # Frame I/O, encoding/decoding
+│   │   ├── kinetic.py               # Landmark format conversion (MediaPipe 33 / COCO 17 → unified 24)
+│   │   ├── locate_path.py           # Project root detection
+│   │   ├── log_streamer.py          # SocketIOLogHandler for real-time log streaming
+│   │   └── logger.py                # Structured logging setup
 │   └── models/
-│       ├── tcpformer/                # TCPFormer 2D→3D lifting model
-│       │   ├── model.py              # Lean inference-only model (AAAI 2025)
+│       ├── tcpformer/                # TCPFormer 2D→3D lifting model (AAAI 2025)
+│       │   ├── model.py
 │       │   └── *.pth.tr             # Checkpoint (auto-downloaded)
-│       └── *.task, *.tflite          # MediaPipe model files
+│       ├── efficientdet_lite2.tflite # MediaPipe object detection model
+│       └── pose_landmarker_full.task # MediaPipe pose landmarker model
 │
 ├── frontend/
 │   ├── src/
 │   │   ├── main.tsx                  # App entry point
-│   │   ├── App.tsx                   # Root component, stream + WebSocket management
+│   │   ├── App.tsx                   # Root layout: sidebar + viewer + log panel
+│   │   ├── App.css                   # Global styles
 │   │   ├── components/
-│   │   │   ├── CameraCapture.tsx     # Camera access, 10 FPS capture, JPEG encoding
-│   │   │   ├── Controls.tsx          # Stream management, camera selection, config upload
-│   │   │   ├── MultiViewGrid.tsx     # Multi-stream grid layout
-│   │   │   ├── Skeleton3DViewer.tsx  # Three.js canvas with video + 3D skeleton
-│   │   │   └── StreamViewer.tsx      # Stream container (camera + 3D viewer + overlays)
+│   │   │   ├── CameraCapture.tsx     # Camera/video source lifecycle, 10 FPS capture, backpressure
+│   │   │   ├── Controls.tsx          # Function selector, source/device picker, start/stop
+│   │   │   ├── FunctionViewer.tsx    # Routes to View2D, View3D, or placeholder by viewMode
+│   │   │   ├── View2D.tsx            # 2D canvas viewer with camera mirroring
+│   │   │   ├── View3D.tsx            # 3D scene with model selector, renderer toggle
+│   │   │   ├── Skeleton3DViewer.tsx  # Three.js canvas: video plane + skeleton + controls
+│   │   │   ├── LogPanel.tsx          # Real-time backend log viewer (right sidebar)
+│   │   │   └── DataAnalysis_.tsx     # Placeholder (unused)
 │   │   ├── hooks/
-│   │   │   ├── useCameraDevices.ts   # Camera device enumeration
-│   │   │   └── useWebSocket.ts       # Socket connection + pose results
+│   │   │   ├── useCameraDevices.ts   # Camera device enumeration + permission management
+│   │   │   ├── useLogStream.ts       # Backend log subscription (rolling 1000-entry buffer)
+│   │   │   └── useWebSocket.ts       # Socket connection + stale result filtering
 │   │   ├── services/
-│   │   │   ├── socketService.ts      # Socket.IO client (reads VITE_BACKEND_URL)
-│   │   │   ├── streamService.ts      # Stream lifecycle management
-│   │   │   └── streamInitService.ts  # Async stream initialization
+│   │   │   ├── socketService.ts      # Socket.IO singleton client (VITE_BACKEND_URL)
+│   │   │   ├── streamInitService.ts  # Async stream init with model switching, 60s timeout
+│   │   │   └── streamService.ts      # Per-stream frame transmission
+│   │   ├── stores/
+│   │   │   └── appStore.ts           # Zustand store (function, source, stream, renderer state)
 │   │   ├── three/
-│   │   │   ├── SkeletonRenderer.tsx  # 3D skeleton ball-and-stick rendering
-│   │   │   ├── VideoPlane.tsx        # Video feed texture on XY plane
-│   │   │   └── connections.ts        # Skeleton bone connection definitions
+│   │   │   ├── AvatarRenderer.tsx    # Mixamo rigged avatar with FK quaternion animation
+│   │   │   ├── StickBallRenderer.tsx # Procedural ball-and-stick skeleton
+│   │   │   ├── VideoPlane.tsx        # Video feed texture on XY plane, camera mirroring
+│   │   │   ├── boneMapping.ts        # Mixamo bone names, joint→bone maps, FK transforms
+│   │   │   └── connections.ts        # Skeleton bone connection topology
 │   │   └── types/
-│   │       └── pose.ts              # Pose/landmark TypeScript types
+│   │       ├── functions.ts          # Function definitions, processor types, view modes
+│   │       └── pose.ts              # Landmark, PoseData, DetectedObject, DetectedHand types
 │   ├── public/
-│   │   └── avatars/                  # Avatar model files (.glb)
+│   │   └── avatars/skeleton.glb      # Mixamo rigged skeleton model
 │   ├── .env.local                    # Dev: VITE_BACKEND_URL=http://localhost:49101
 │   ├── .env.production               # Prod: VITE_BACKEND_URL=https://pose-backend.yingliu.site
 │   ├── package.json
-│   ├── vite.config.ts                # Vite config (port 8585, path aliases)
+│   ├── vite.config.ts                # Vite config (port 8585, @ path alias)
 │   └── run_ui.sh                     # Local dev startup script
 │
 ├── .github/workflows/
-│   ├── deploy_backend.yml            # CI/CD: rsync → docker cp → restart in container (main)
-│   ├── deploy_backend_staging.yml    # CI/CD: same as above for staging container (staging)
-│   ├── deploy_frontend.yml           # CI/CD: build → rsync → nginx reload (main)
-│   └── deploy_frontend_staging.yml   # CI/CD: same as above for staging (staging)
+│   ├── deploy_backend.yml            # CI/CD: backend to production (main branch)
+│   ├── deploy_backend_staging.yml    # CI/CD: backend to staging (staging branch)
+│   ├── deploy_frontend.yml           # CI/CD: frontend to production (main branch)
+│   └── deploy_frontend_staging.yml   # CI/CD: frontend to staging (staging branch)
 │
 ├── .claude/
 │   ├── PROJECT_STRUCTURE.md          # This file
-│   ├── PLAYWRIGHT_SETUP.md           # Playwright testing setup guide
-│   ├── TODO.md                       # Project roadmap and task tracking
 │   └── skills/
 │       ├── develop/SKILL.md          # Full development workflow
-│       └── code-review/SKILL.md      # Code review workflow
+│       ├── code-review/SKILL.md      # Code review workflow
+│       ├── test/SKILL.md             # Test workflow
+│       └── ssh-servers/SKILL.md      # Remote server access
 │
 ├── tests/
-│   ├── pose-validation.spec.ts       # Playwright test suite
-│   └── README.md                     # Testing guide
+│   ├── playwright.config.ts          # Playwright config (production)
+│   ├── playwright.staging.config.ts  # Playwright config (staging)
+│   └── specs/
+│       ├── pose-validation.spec.ts   # E2E pose detection + 3D rendering tests
+│       └── staging-video-test.spec.ts # Staging-specific video upload tests
 │
-├── playwright.config.ts              # Playwright config (multi-browser, auto server start)
-├── package.json                      # Root package (test scripts + Playwright dep)
-├── CHANGELOG.md                      # Version history
 ├── README.md                         # Project overview and setup guide
-├── LLMprompt.md                      # LLM prompting reference
+├── CHANGELOG.md                      # Version history
 ├── output/                           # Processing output directory
 ├── logs/                             # Backend log files (date-stamped)
-└── .cache/                           # Runtime cache
+└── .cache/                           # Runtime model cache
 ```
+
+## Function Modes
+
+The app operates in single-function mode with five available functions:
+
+| Function | Processor | View | Description |
+|----------|-----------|------|-------------|
+| 2D Pose Estimation | `yolo_pose_2d` | 2D | YOLOv8-Pose 2D keypoint detection |
+| 3D Pose Estimation | `mediapipe` or `rtmpose` | 3D | Switchable 3D model with avatar/skeleton rendering |
+| Object Detection | `mediapipe_object_detection` | 2D | EfficientDet bounding boxes + labels |
+| Hand Gesture Recognition | `mediapipe_hand_gesture` | 2D | Per-hand landmarks + gesture classification |
+| Avatar Voice Control | — | placeholder | Coming soon |
 
 ## Core Components
 
 ### Backend
 
-**app.py** - FastAPI server with Socket.IO, CORS, health endpoint (`/health`), root info endpoint (`/`)
+**app.py** - FastAPI server with Socket.IO, CORS, endpoints: `/` (info), `/health` (stats), `/info` (features)
 
 **config.py** - Centralized settings with env var support:
 - `POSE_STUDIO_HOST` (default `0.0.0.0`), `POSE_STUDIO_PORT` (default `49101`)
-- `POSE_WORKERS` — thread pool size for concurrent stream processing (default `min(cpu_count, 16)`, tunable via env var)
-- `MAX_CONCURRENT_STREAMS` — server-wide concurrent stream limit (default `3`, tunable via env var)
-- BLAS thread pinning (`OMP_NUM_THREADS=1`, `MKL_NUM_THREADS=1`, `OPENBLAS_NUM_THREADS=1`) to prevent per-operation thread explosion
-- CORS origins: `localhost:8585`, `robot.yingliu.site`
-- MediaPipe params, FPS, JPEG quality, max streams
+- `POSE_WORKERS` — thread pool size (default `min(cpu_count, 16)`)
+- `MAX_CONCURRENT_STREAMS` — server-wide limit (default `3`)
+- BLAS thread pinning (`OMP_NUM_THREADS=1`, `MKL_NUM_THREADS=1`, `OPENBLAS_NUM_THREADS=1`)
+- CORS origins: `localhost:8585`, `robot.yingliu.site`, `staging.robot.yingliu.site`
+- GPU detection (ONNX Runtime CUDA, PyTorch CUDA)
+- Config merging from `config_template.json`
 
 **websocket_handler.py** - Manages:
-- Client connections/disconnections
-- Stream initialization with processor pipeline (injects `source_type` into processor config)
+- Client connections/disconnections with per-client cleanup
+- Stream initialization with multi-processor pipeline
 - Concurrent frame processing via `ThreadPoolExecutor(max_workers=POSE_WORKERS)`
 - Per-stream timing metrics exposed on `/health`
-- Result emission
-- Processor cleanup
+- Real-time log streaming (`subscribe_logs` / `unsubscribe_logs`)
+- Model switching (`switch_model` event)
+- Concurrent stream limit enforcement
 
-**base_processor.py** - Abstract class requiring:
-- `initialize()` → bool
-- `process_frame(frame, timestamp_ms)` → Dict
-- `cleanup()` → void
+**Processors** (all inherit from `base_processor.py`):
 
-**image_processor.py** - Preprocessing stage (filters, transforms, adjustments)
+| Processor | Output | Notes |
+|-----------|--------|-------|
+| `mediapipe_processor` | 2D/3D landmarks (33→24 unified) | LIVE_STREAM for camera, VIDEO for uploads |
+| `rtmpose_processor` | FK quaternions + root position | RTMW3D-X + YOLOX-M, depth-corrected z |
+| `yolo_pose_2d_processor` | 2D landmarks (17 COCO keypoints) | YOLOv8-M Pose |
+| `yolo_tcpformer_processor` | FK + world landmarks | YOLO 2D → TCPFormer temporal 3D lifting |
+| `mediapipe_object_detector_processor` | Bounding boxes + labels | EfficientDet-Lite2 |
+| `mediapipe_hand_gesture_processor` | Hand landmarks + gestures | Per-hand classification |
+| `image_processor` | Preprocessed frame | Resize, flip, normalize |
+| `data_processor` | Feature vectors | Temporal smoothing, windowing |
 
-**mediapipe_processor.py** - Pose estimation (2D/3D landmarks, skeleton overlay). Dual running mode: `LIVE_STREAM` (async callbacks) for camera, `VIDEO` (synchronous, no frame delay) for video uploads
-
-**yolo_tcpformer_processor.py** - Combined YOLOv8-Pose 2D detection + TCPFormer temporal 2D→3D lifting. Buffers 81 frames of 2D keypoints, runs TCPFormer transformer to produce real 3D coordinates. GPU-accelerated. Config `processor_type: "yolo_tcpformer"`.
+**Utilities:**
+- `kinetic.py` — Landmark format conversion (MediaPipe 33 / COCO 17 → unified 24 joints)
+- `filters.py` — MedianFilter, GaussianFilter for temporal smoothing
+- `io.py` — Frame encoding/decoding
+- `log_streamer.py` — SocketIOLogHandler for real-time log streaming to clients
 
 ### Frontend
 
-**App.tsx** - Root component, manages streams and WebSocket connection
+**App.tsx** - Root layout: left sidebar (Controls), center (FunctionViewer), right sidebar (LogPanel). Animated background orbs, connection status indicator, error boundary.
 
-**Controls.tsx** - Stream management: add/delete streams, camera selection, config upload
+**Controls.tsx** - Function selector (radio buttons), source type toggle (camera/video), device picker, start/stop buttons. Camera permission requested on Start (not on mount).
 
-**CameraCapture.tsx** - Camera access, 10 FPS capture, JPEG encoding, receives processed frames
+**FunctionViewer.tsx** - Routes to View2D, View3D, or placeholder based on `functionDef.viewMode`.
 
-**StreamViewer.tsx** - Container combining camera + 3D viewer + overlays
+**View2D.tsx** - Canvas-based 2D viewer. Displays annotated frames from backend. Camera source mirroring via `scaleX(-1)`.
 
-**Skeleton3DViewer.tsx** - Three.js canvas with video plane + 3D skeleton
+**View3D.tsx** - 3D scene wrapper. Model selector dropdown (MediaPipe / YOLO+RTMPose). Avatar/skeleton renderer toggle. Manages video/canvas refs for Skeleton3DViewer.
 
-**useWebSocket.ts** - Socket connection, pose results Map, connection status
+**Skeleton3DViewer.tsx** - Three.js Canvas with VideoPlane background + AvatarRenderer or StickBallRenderer. Orbit controls, grid, lighting, error boundary.
 
-**socketService.ts** - Socket.IO client, reads backend URL from `VITE_BACKEND_URL` env var
+**CameraCapture.tsx** - Camera/video source lifecycle. 10 FPS capture with backpressure (waits for backend result before sending next frame).
 
-**streamInitService.ts** - Async stream initialization with backend
+**LogPanel.tsx** - Real-time backend log viewer. Severity-colored entries (DEBUG/INFO/WARNING/ERROR), auto-scroll, expand/collapse.
+
+**appStore.ts** (Zustand) - Centralized state: `activeFunction`, `sourceType`, `deviceId`, `videoFile`, `isStreamActive`, `isInitializing`, `initMessage`, `backendResult`, `rendererType` (avatar/stickball), `pose3dProcessorType` (mediapipe/rtmpose), sidebar collapse states.
+
+**Three.js renderers:**
+- `AvatarRenderer` — Loads skeleton.glb, applies FK quaternions to Mixamo bones, T-pose caching, smooth interpolation
+- `StickBallRenderer` — Procedural green spheres + lines using POSE_CONNECTIONS topology
+- `VideoPlane` — Video texture on XY plane, camera source mirroring
+- `boneMapping` — Mixamo bone names, joint→bone maps, conjugation rules, z-axis negation for legs
 
 ## Architecture
-
-### Processor Pipeline
-
-```
-Camera Frame → ImageProcessor → MediaPipeProcessor → Annotated Frame + Pose Data
-```
 
 ### Data Flow
 
 ```
-Camera (10 FPS) → encode JPEG/Base64 → WebSocket
+Source (Camera 10 FPS / Video) → encode JPEG/Base64 → WebSocket
     ↓
-WebSocket Handler → decode → ImageProcessor → MediaPipeProcessor
+WebSocket Handler → decode → ImageProcessor → DataProcessor → PoseProcessor
     ↓
 encode JPEG/Base64 → WebSocket → Frontend
     ↓
-Canvas → Three.js Texture → Render (VideoPlane + Skeleton)
+View2D: Canvas render (annotated frame)
+View3D: Three.js (VideoPlane + AvatarRenderer or StickBallRenderer)
 ```
 
 ### Stream Lifecycle
 
 **Initialize:**
 ```
-UI → StreamInitService.initializeStream() → Backend creates processors
-→ stream_initialized event → UI adds stream → Camera starts
+UI Start → requestPermission() → StreamInitService.initializeStream()
+→ Backend creates processor pipeline → stream_initialized → Camera starts
 ```
 
-**Process:**
+**Process (with backpressure):**
 ```
-Camera captures → process_frame event → Pipeline → pose_result event
-→ Update canvas → Three.js renders
+Camera captures → process_frame → Pipeline → pose_result
+→ Update store → Render → next capture
 ```
 
 **Cleanup:**
 ```
-Delete button → cleanup_processor event → Backend releases processors
-→ UI removes stream → Camera stops
+Stop button → cleanup_processor → Backend releases processors
+→ Reset permission → UI idle
 ```
 
 ## Deployment Architecture
 
 ```
-GitHub Actions (push to main)
+GitHub Actions
     │
-    ├─ deploy_frontend.yml
-    │   └─ npm build → rsync dist/ → nginx reload
-    │   └─ Target: VM1 via Cloudflare tunnel
-    │   └─ Serves: https://robot.yingliu.site
-    │
-    └─ deploy_backend.yml
-        └─ rsync → docker cp → pip install → restart → health check
-        └─ Target: VM2 via Cloudflare tunnel (pose-backend-ssh.yingliu.site)
-        └─ Container: pose-spatial-studio-backend (port 49101)
-        └─ Serves: https://pose-backend.yingliu.site
+    ├─ push to main ──────────────────────────────────────────────┐
+    │   ├─ deploy_frontend.yml → build → rsync → nginx reload    │
+    │   │   Serves: https://robot.yingliu.site                   │
+    │   └─ deploy_backend.yml → rsync → docker cp → restart      │
+    │       Serves: https://pose-backend.yingliu.site             │
+    │                                                             │
+    └─ push to staging ───────────────────────────────────────────┤
+        ├─ deploy_frontend_staging.yml                            │
+        │   Serves: https://staging.robot.yingliu.site            │
+        └─ deploy_backend_staging.yml                             │
+            Serves: staging backend container                     │
 
 VM1 (Frontend Edge)          VM2 (GPU Backend)
 ┌─────────────────┐          ┌──────────────────────────┐
 │ Nginx            │          │ Docker container          │
 │ /var/www/frontend│  ──WS──► │ FastAPI + Socket.IO       │
-│ Cloudflare TLS   │          │ MediaPipe + GPU (CUDA)    │
+│ Cloudflare TLS   │          │ CUDA GPU acceleration     │
 └─────────────────┘          └──────────────────────────┘
 ```
 
@@ -211,6 +260,8 @@ VM1 (Frontend Edge)          VM2 (GPU Backend)
 | `process_frame` | `{ stream_id, frame (base64), timestamp_ms }` |
 | `cleanup_processor` | `{ stream_id }` |
 | `switch_model` | `{ stream_id, processor_type }` |
+| `subscribe_logs` | `{}` |
+| `unsubscribe_logs` | `{}` |
 
 ### Server → Client
 
@@ -219,44 +270,33 @@ VM1 (Frontend Edge)          VM2 (GPU Backend)
 | `connection_status` | `{ status, sid }` |
 | `stream_initialized` | `{ stream_id, status, message, processor_type }` |
 | `stream_error` | `{ stream_id, message, code?, active_streams?, max_streams? }` |
+| `stream_loading` | `{ stream_id, message }` |
 | `pose_result` | `{ stream_id, frame (base64), pose_data, timestamp_ms }` |
 | `model_switched` | `{ stream_id, processor_type, message }` |
+| `log_batch` | `[{ level, message, timestamp, logger }]` |
 | `error` | `{ message }` |
 
 ## Configuration
 
-### Backend (config.py)
+### Backend (config.py + config_template.json)
 ```python
 HOST = os.getenv("POSE_STUDIO_HOST", "0.0.0.0")
 PORT = int(os.getenv("POSE_STUDIO_PORT", 49101))
-MIN_DETECTION_CONFIDENCE = 0.5
-MIN_TRACKING_CONFIDENCE = 0.5
-TARGET_FPS = 15
-JPEG_QUALITY = 80
-MAX_STREAMS = 10
-MAX_CONCURRENT_STREAMS = 3  # Server-wide limit, env var override
+POSE_WORKERS = min(cpu_count, 16)       # env var override
+MAX_CONCURRENT_STREAMS = 3              # env var override
 ```
 
 ### Frontend (environment files)
 - `.env.local` → `VITE_BACKEND_URL=http://localhost:49101`
 - `.env.production` → `VITE_BACKEND_URL=https://pose-backend.yingliu.site`
 
-### Frontend (JSON config upload)
-```json
-{
-  "min_detection_confidence": 0.7,
-  "min_tracking_confidence": 0.7,
-  "num_poses": 2
-}
-```
-
 ## Tech Stack
 
-**Backend:** Python 3.13, FastAPI, Socket.IO, MediaPipe, OpenCV, NumPy, PyTorch, CLIP
+**Backend:** Python 3.13, FastAPI, Socket.IO, MediaPipe, rtmlib, Ultralytics (YOLOv8), PyTorch, OpenCV, NumPy
 
-**Frontend:** React 18, TypeScript, Three.js, React Three Fiber, Socket.IO Client, Vite
+**Frontend:** React 19, TypeScript, Three.js, React Three Fiber, Drei, Zustand, Socket.IO Client, Vite
 
-**Testing:** Playwright (automated UI testing), Playwright MCP (Claude Code integration)
+**Testing:** Playwright (E2E, production + staging configs)
 
 **CI/CD:** GitHub Actions, Cloudflare Tunnels (SSH via cloudflared + Access service tokens), rsync deployment
 
@@ -264,72 +304,13 @@ MAX_CONCURRENT_STREAMS = 3  # Server-wide limit, env var override
 
 ## Testing
 
-### Playwright Automated Testing
-
-**Running tests:**
 ```bash
-npm test                # Run all tests
-npm run test:headed     # Run with visible browser
-npm run test:debug      # Debug mode
-npm run test:report     # View HTML report
+# From tests/ directory
+npx playwright test                        # Run all tests
+npx playwright test --config playwright.staging.config.ts  # Staging tests
+npx playwright test --headed               # With visible browser
+npx playwright show-report                 # View HTML report
 ```
-
-**Playwright MCP Integration:**
-Claude Code can run tests using Playwright MCP:
-```
-Use ToolSearch with query: "playwright"
-```
-
-**Test results:** Screenshots in `test-results/`, videos on failure, HTML reports via `npm run test:report`
-
-## Extension Guide
-
-### Add New Processor
-
-```python
-from processors.base_processor import BaseProcessor
-
-class CustomProcessor(BaseProcessor):
-    def initialize(self) -> bool:
-        self._is_initialized = True
-        return True
-
-    def process_frame(self, frame, timestamp_ms):
-        return {'processed_frame': frame, 'data': {}}
-
-    def cleanup(self):
-        self._is_initialized = False
-```
-
-Add to `websocket_handler.py`:
-```python
-custom_processor = CustomProcessor(processor_id, config)
-```
-
-### Add New Visualization
-
-```typescript
-export function CustomRenderer({ landmarks }: Props) {
-  return (
-    <group>
-      {landmarks.map((lm, i) => (
-        <mesh key={i} position={[lm.x, -lm.y, -lm.z]}>
-          <sphereGeometry args={[0.05]} />
-          <meshStandardMaterial color="#ff0000" />
-        </mesh>
-      ))}
-    </group>
-  );
-}
-```
-
-## Performance Tips
-
-- **10 FPS capture** reduces bandwidth/CPU (configurable via `TARGET_FPS`)
-- **JPEG quality 0.8** balances size vs quality
-- **Processor pipeline** allows independent optimization
-- **React optimization** uses refs to avoid unnecessary re-renders
-- **Processor persistence** survives React remounts (no redundant initialization)
 
 ## Debugging
 
@@ -339,22 +320,10 @@ tail -f logs/$(date +%Y-%m-%d).log
 grep ERROR logs/*.log
 ```
 
-**Frontend console prefixes:**
-```
-[useWebSocket] - Socket events
-[CameraCapture] - Frame capture
-[StreamViewer] - Component lifecycle
-```
+**Real-time logs:** Open LogPanel in the right sidebar (frontend streams backend logs live)
 
 **Common issues:**
 - Camera not starting → Check browser permissions
-- No pose results → Check backend logs for initialization errors
+- No pose results → Check backend logs / LogPanel for initialization errors
 - Low performance → Reduce FPS or resolution
-
-## Design Principles
-
-1. **Modular** - Clear processor pipeline, independent components
-2. **Type-safe** - TypeScript interfaces, Python type hints, abstract classes
-3. **Lifecycle management** - Processors initialized once, explicit cleanup
-4. **Performance-first** - 10 FPS, compression, optimized rendering
-5. **Extensible** - Easy to add processors, visualizations, configs
+- Stream limit reached → Max 3 concurrent streams (configurable)

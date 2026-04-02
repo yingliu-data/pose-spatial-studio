@@ -65,6 +65,7 @@ export function AvatarRenderer({
   const isInitializedRef = useRef(false);
   const prevQuaternionsRef = useRef<Map<string, THREE.Quaternion>>(new Map());
   const prevPositionRef = useRef<THREE.Vector3>(new THREE.Vector3());
+  const baselineYRef = useRef<number | null>(null);
   const intermediateInverseRef = useRef<Map<string, THREE.Quaternion>>(new Map());
   const intermediateRotationRef = useRef<Map<string, THREE.Quaternion>>(new Map());
 
@@ -75,6 +76,7 @@ export function AvatarRenderer({
         groupRef.current.remove(modelRef.current);
       }
       isInitializedRef.current = false;
+      baselineYRef.current = null;
     };
   }, []);
 
@@ -178,9 +180,16 @@ export function AvatarRenderer({
     const intermediateInverse = intermediateInverseRef.current;
     const intermediateRotations = intermediateRotationRef.current;
 
-    // Apply root position to the group (world space)
+    // Apply root position to the group (world space), offset so hips start at y=0
     if (rootPosition && groupRef.current) {
-      const targetPos = new THREE.Vector3(rootPosition.x, rootPosition.y, rootPosition.z);
+      if (baselineYRef.current === null) {
+        baselineYRef.current = rootPosition.y;
+      }
+      const targetPos = new THREE.Vector3(
+        rootPosition.x,
+        rootPosition.y - baselineYRef.current,
+        rootPosition.z
+      );
       prevPositionRef.current.lerp(targetPos, SMOOTHING_FACTOR);
       groupRef.current.position.copy(prevPositionRef.current);
     }

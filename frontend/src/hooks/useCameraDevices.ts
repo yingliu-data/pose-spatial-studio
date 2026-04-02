@@ -1,4 +1,4 @@
-import { useState, useEffect } from 'react';
+import { useState, useEffect, useCallback } from 'react';
 
 export interface CameraDevice {
   deviceId: string;
@@ -8,31 +8,51 @@ export interface CameraDevice {
 
 export function useCameraDevices() {
   const [devices, setDevices] = useState<CameraDevice[]>([]);
-  const [loading, setLoading] = useState(true);
+  const [loading, setLoading] = useState(false);
+  const [permissionGranted, setPermissionGranted] = useState(false);
 
-  useEffect(() => {
-    const getCameraDevices = async () => {
-      try {
-        await navigator.mediaDevices.getUserMedia({ video: true });
-        const allDevices = await navigator.mediaDevices.enumerateDevices();
-        setDevices(allDevices
-          .filter(device => device.kind === 'videoinput')
-          .map((device, index) => ({
-            deviceId: device.deviceId,
-            label: device.label || `Camera ${index + 1}`,
-            groupId: device.groupId
-          })));
-      } catch (err) {
-        console.error('Error accessing camera devices:', err);
-      } finally {
-        setLoading(false);
-      }
-    };
-
-    getCameraDevices();
-    navigator.mediaDevices.addEventListener('devicechange', getCameraDevices);
-    return () => navigator.mediaDevices.removeEventListener('devicechange', getCameraDevices);
+  const enumerate = useCallback(async () => {
+    try {
+      const allDevices = await navigator.mediaDevices.enumerateDevices();
+      setDevices(
+        allDevices
+          .filter((d) => d.kind === 'videoinput')
+          .map((d, i) => ({
+            deviceId: d.deviceId,
+            label: d.label || `Camera ${i + 1}`,
+            groupId: d.groupId,
+          })),
+      );
+    } catch (err) {
+      console.error('Error enumerating devices:', err);
+    }
   }, []);
 
-  return { devices, loading };
+  const requestPermission = useCallback(async () => {
+    setLoading(true);
+    try {
+      const stream = await navigator.mediaDevices.getUserMedia({ video: true });
+      stream.getTracks().forEach((t) => t.stop());
+      setPermissionGranted(true);
+      await enumerate();
+    } catch (err) {
+      console.error('Error requesting camera permission:', err);
+    } finally {
+      setLoading(false);
+    }
+  }, [enumerate]);
+
+  const resetPermission = useCallback(() => {
+    setPermissionGranted(false);
+  }, []);
+
+  useEffect(() => {
+    // Try enumeration without permission (labels may be empty)
+    enumerate();
+    navigator.mediaDevices.addEventListener('devicechange', enumerate);
+    return () =>
+      navigator.mediaDevices.removeEventListener('devicechange', enumerate);
+  }, [enumerate]);
+
+  return { devices, loading, permissionGranted, requestPermission, resetPermission };
 }

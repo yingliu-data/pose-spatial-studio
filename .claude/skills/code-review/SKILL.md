@@ -31,8 +31,8 @@ Determine what code is under review:
 1. **Diff the changes** against the base branch:
    ```bash
 
-   git diff main...HEAD --stat
-   git diff main...HEAD
+   git diff staging...HEAD --stat
+   git diff staging...HEAD
    ```
 2. **List affected files** and categorize them (frontend, backend, config, docs)
 3. **Read each changed file** in full to understand context around the diff
@@ -147,11 +147,12 @@ Test the frontend changes against the production backend:
    cd frontend
    ./run_ui.sh
    ```
-2. Configure the frontend to connect to the remote backend (`https://robot.yingliu.site`)
+2. Configure the frontend to connect to the remote backend (`https://pose-backend.yingliu.site`)
 3. Open `http://localhost:8585` in the browser
 4. Validate:
-   - Does the UI render correctly?
-   - Does pose detection and avatar movement work?
+   - Does the UI render correctly? (function selector, source picker, log panel)
+   - Do all function modes work? (2D Pose, 3D Pose, Object Detection, Hand Gesture)
+   - Does 3D pose model switching (MediaPipe / YOLO+RTMPose) and avatar/skeleton toggle work?
    - Are there console errors or broken WebSocket connections?
 
 **If issues are found**: return to development using the develop skill (`/develop`), then re-run this review.
@@ -165,10 +166,11 @@ Test the backend changes against the production frontend:
    ./run_server.sh
    ```
 2. Access the remote frontend at `https://robot.yingliu.site`
-3. Configure it to connect to the local backend
+3. Configure it to connect to the local backend (`http://localhost:49101`)
 4. Validate:
-   - Does the backend serve pose data correctly?
+   - Does the backend serve pose/detection/gesture data correctly for all function modes?
    - Are WebSocket streams stable?
+   - Does the log panel show backend logs in real time?
    - Is the response time acceptable?
 
 **If issues are found**: return to development using the develop skill (`/develop`), then re-run this review.
@@ -183,14 +185,9 @@ npm test                    # run all tests
 npm run test:headed         # run with visible browser
 ```
 
-Or use Playwright MCP tools in Claude Code:
-1. Load Playwright tools via `ToolSearch` with query: `"playwright"`
-2. Navigate to `http://localhost:8585`
-3. Fill camera name as `test`, select laptop camera
-4. Verify pose detection renders and avatar responds
-5. Capture screenshots for visual confirmation
-
-Test specs are in `tests/specs/`. See `tests/specs/pose-validation.spec.ts` for the existing test suite.
+Test specs are in `tests/specs/`:
+- `pose-validation.spec.ts` — Main E2E suite (UI controls, video upload, pose detection)
+- `staging-video-test.spec.ts` — Staging backend smoke test (uses `playwright.staging.config.ts`)
 
 ---
 

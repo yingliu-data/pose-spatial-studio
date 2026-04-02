@@ -4,6 +4,35 @@ All notable changes to the Pose Spatial Studio project will be documented in thi
 
 The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.0.0/).
 
+## [1.4.0] - 2 April 2026
+
+### Added
+- Single-function mode: restructured app from multi-stream grid to single active function with dedicated views
+- Five function modes: 2D Pose Estimation, 3D Pose Estimation, Object Detection, Hand Gesture Recognition, Avatar Voice Control (placeholder)
+- FunctionViewer component: routes to View2D, View3D, or placeholder based on selected function
+- View2D component: canvas-based 2D viewer with camera mirroring for annotated frames
+- View3D component: 3D scene with model selector dropdown (MediaPipe / YOLO+RTMPose) and avatar/skeleton toggle
+- YOLOv8-Pose 2D processor (`yolo_pose_2d`) for standalone 2D pose estimation
+- MediaPipe Object Detection processor (`mediapipe_object_detection`) with EfficientDet-Lite2
+- MediaPipe Hand Gesture Recognition processor (`mediapipe_hand_gesture`) with per-hand classification
+- Zustand state management (`appStore.ts`) replacing scattered component state
+- Real-time backend log streaming: LogPanel sidebar with severity-colored entries, `subscribe_logs`/`unsubscribe_logs` WebSocket events
+- `useLogStream` hook for rolling 1000-entry log buffer
+- Camera permission requested on Start button (not on mount) with `resetPermission` on stop
+
+### Changed
+- Replaced multi-stream grid layout (MultiViewGrid, StreamViewer) with single-function viewer architecture
+- Controls sidebar: function selector radio buttons, source type toggle, device picker, start/stop
+- 3D pose model selector moved inline into View3D toolbar (was separate sidebar control)
+- Avatar/Skeleton toggle moved inline into View3D toolbar with cleaner styling
+- Video plane bottom edge aligned with floor grid in 3D view
+- Renamed "Robotic Control" to "Avatar Voice Control"
+- Updated all documentation: PROJECT_STRUCTURE.md, README.md, and all skill files (develop, test, code-review, ssh-servers)
+
+### Removed
+- MultiViewGrid and StreamViewer components (replaced by FunctionViewer + View2D/View3D)
+- TODO.md (replaced by task tracking in conversations)
+
 ## [1.3.5] - 22 February 2026
 
 ### Added

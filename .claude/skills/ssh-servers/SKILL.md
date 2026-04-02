@@ -31,10 +31,10 @@ Both servers use Cloudflare Tunnels (via `cloudflared access ssh`) as configured
 | Hostname | `pose-backend-ssh.yingliu.site` |
 | User | `root` |
 | Key | `~/.ssh/github_deploy_ed25519` |
-| App runs in | Docker container `pose-spatial-studio-backend` |
+| Production container | `pose-spatial-studio-backend` (port 49101) |
+| Staging container | `pose-spatial-studio-backend-staging` (port 49102) |
 | Code path | `/root/backend/` (inside container) |
 | Logs | `/root/backend/logs/app.log` (inside container) |
-| Port | 49101 |
 
 **Connect:**
 ```bash
@@ -135,6 +135,11 @@ When a problem exists on remote but not locally:
 ## Quick Health Check (No SSH Required)
 
 ```bash
+# Production
 curl -s https://pose-backend.yingliu.site/health | python3 -m json.tool
 curl -s -o /dev/null -w "%{http_code}" https://robot.yingliu.site
+
+# Staging
+curl -s https://pose-backend-staging.yingliu.site/health | python3 -m json.tool
+curl -s -o /dev/null -w "%{http_code}" https://staging.robot.yingliu.site
 ```

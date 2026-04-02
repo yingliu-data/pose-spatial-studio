@@ -9,7 +9,7 @@ interface View2DProps {
 
 export function View2D({ socket }: View2DProps) {
   const displayCanvasRef = useRef<HTMLCanvasElement>(null);
-  const { backendResult, functionDef, isStreamActive, sourceType } = useAppStore();
+  const { backendResult, functionDef, isStreamActive } = useAppStore();
 
   // Draw annotated frame onto the visible canvas
   useEffect(() => {
@@ -65,7 +65,6 @@ export function View2D({ socket }: View2DProps) {
             display: 'block',
             backgroundColor: '#000',
             borderRadius: 16,
-            transform: sourceType === 'camera' ? 'scaleX(-1)' : undefined,
           }}
         />
       )}

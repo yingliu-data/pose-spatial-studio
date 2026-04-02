@@ -21,7 +21,7 @@ interface View3DProps {
 export function View3D({ socket }: View3DProps) {
   const [videoElement, setVideoElement] = useState<HTMLVideoElement | null>(null);
   const [processedCanvas, setProcessedCanvas] = useState<HTMLCanvasElement | null>(null);
-  const { backendResult, isStreamActive, rendererType, toggleRendererType, sourceType, pose3dProcessorType, setPose3dProcessorType } = useAppStore();
+  const { backendResult, isStreamActive, rendererType, toggleRendererType, pose3dProcessorType, setPose3dProcessorType } = useAppStore();
   const [isSwitching, setIsSwitching] = useState(false);
 
   const onVideoReady = useCallback((video: HTMLVideoElement) => {
@@ -69,7 +69,7 @@ export function View3D({ socket }: View3DProps) {
                 el.play();
               }
             }}
-            style={{ width: '100%', height: '100%', objectFit: 'contain', backgroundColor: '#000', borderRadius: 16, transform: sourceType === 'camera' ? 'scaleX(-1)' : undefined }}
+            style={{ width: '100%', height: '100%', objectFit: 'contain', backgroundColor: '#000', borderRadius: 16 }}
             playsInline
             muted
             autoPlay

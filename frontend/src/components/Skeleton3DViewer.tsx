@@ -5,7 +5,6 @@ import { VideoPlane } from '@/three/VideoPlane';
 import { PoseResult } from '@/types/pose';
 import { StickBallRenderer } from '@/three/StickBallRenderer';
 import { AvatarRenderer } from '@/three/AvatarRenderer';
-import { useAppStore } from '@/stores/appStore';
 
 export type RendererType = 'stickball' | 'avatar';
 
@@ -33,8 +32,7 @@ interface Skeleton3DViewerProps {
 }
 
 export function Skeleton3DViewer({ poseResult, videoElement, processedCanvas, rendererType = 'avatar' }: Skeleton3DViewerProps) {
-  const sourceType = useAppStore((s) => s.sourceType);
-  const mirrored = sourceType === 'camera';
+  // Backend already flips camera frames before processing, so no frontend mirror needed
 
   useEffect(() => {
     console.log('[3D] Skeleton3DViewer mounted', { hasVideo: !!videoElement, hasCanvas: !!processedCanvas, hasPose: !!poseResult?.pose_data });
@@ -92,9 +90,9 @@ export function Skeleton3DViewer({ poseResult, videoElement, processedCanvas, re
           />
 
           {processedCanvas ? (
-            <VideoPlane canvasElement={processedCanvas} mirrored={mirrored} />
+            <VideoPlane canvasElement={processedCanvas} mirrored={false} />
           ) : videoElement ? (
-            <VideoPlane videoElement={videoElement} mirrored={mirrored} />
+            <VideoPlane videoElement={videoElement} mirrored={false} />
           ) : null}
 
           {renderSkeleton()}

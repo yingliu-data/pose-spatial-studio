@@ -11,6 +11,9 @@ from typing import Dict, Any, Tuple
 from processors.mediapipe_processor import MediaPipeProcessor
 from processors.rtmpose_processor import RTMPoseProcessor
 from processors.yolo_tcpformer_processor import YoloTCPFormerProcessor
+from processors.yolo_pose_2d_processor import YoloPose2DProcessor
+from processors.mediapipe_object_detector_processor import MediaPipeObjectDetectorProcessor
+from processors.mediapipe_hand_gesture_processor import MediaPipeHandGestureProcessor
 from processors.image_processor import ImageProcessor
 from processors.base_processor import BaseProcessor
 from processors.data_processor import DataProcessor
@@ -128,10 +131,19 @@ class WebSocketHandler:
                     elif processor_type == 'yolo_tcpformer':
                         logger.info(f"[INIT] Creating YOLO+TCPFormer processor")
                         processor_pipeline['pose_processor'] = YoloTCPFormerProcessor(processor_id, processor_config)
+                    elif processor_type == 'yolo_pose_2d':
+                        logger.info(f"[INIT] Creating YOLO 2D Pose processor")
+                        processor_pipeline['pose_processor'] = YoloPose2DProcessor(processor_id, processor_config)
+                    elif processor_type == 'mediapipe_object_detection':
+                        logger.info(f"[INIT] Creating MediaPipe Object Detection processor")
+                        processor_pipeline['pose_processor'] = MediaPipeObjectDetectorProcessor(processor_id, processor_config)
+                    elif processor_type == 'mediapipe_hand_gesture':
+                        logger.info(f"[INIT] Creating MediaPipe Hand Gesture processor")
+                        processor_pipeline['pose_processor'] = MediaPipeHandGestureProcessor(processor_id, processor_config)
                     else:
                         await self.sio.emit('stream_error', {
                             'stream_id': stream_id,
-                            'message': f'Unknown processor type: {processor_type}. Use "mediapipe", "rtmpose", or "yolo_tcpformer" in config.'
+                            'message': f'Unknown processor type: {processor_type}. Use "mediapipe", "rtmpose", "yolo_tcpformer", "yolo_pose_2d", "mediapipe_object_detection", or "mediapipe_hand_gesture" in config.'
                         }, room=sid)
                         return
                 
@@ -235,6 +247,12 @@ class WebSocketHandler:
                     current_type = 'rtmpose'
                 elif isinstance(current_pose, YoloTCPFormerProcessor):
                     current_type = 'yolo_tcpformer'
+                elif isinstance(current_pose, YoloPose2DProcessor):
+                    current_type = 'yolo_pose_2d'
+                elif isinstance(current_pose, MediaPipeObjectDetectorProcessor):
+                    current_type = 'mediapipe_object_detection'
+                elif isinstance(current_pose, MediaPipeHandGestureProcessor):
+                    current_type = 'mediapipe_hand_gesture'
 
                 # Skip if already using the requested model
                 if current_type == new_processor_type:
@@ -268,6 +286,12 @@ class WebSocketHandler:
                     new_pose = RTMPoseProcessor(processor_id, processor_config)
                 elif new_processor_type == 'yolo_tcpformer':
                     new_pose = YoloTCPFormerProcessor(processor_id, processor_config)
+                elif new_processor_type == 'yolo_pose_2d':
+                    new_pose = YoloPose2DProcessor(processor_id, processor_config)
+                elif new_processor_type == 'mediapipe_object_detection':
+                    new_pose = MediaPipeObjectDetectorProcessor(processor_id, processor_config)
+                elif new_processor_type == 'mediapipe_hand_gesture':
+                    new_pose = MediaPipeHandGestureProcessor(processor_id, processor_config)
                 else:
                     await self.sio.emit('stream_error', {
                         'stream_id': stream_id,
@@ -319,8 +343,9 @@ class WebSocketHandler:
                     pose_processor = pipeline.get('pose_processor')
                     if pose_processor and hasattr(pose_processor, 'result_lock'):
                         with pose_processor.result_lock:
-                            pose_processor.latest_pose_result = None
-                            pose_processor.latest_object_result = None
+                            for attr in ['latest_pose_result', 'latest_object_result', 'latest_gesture_result']:
+                                if hasattr(pose_processor, attr):
+                                    setattr(pose_processor, attr, None)
                     
                     logger.info(f"[FLUSH] Stream {stream_id} flushed")
                     await self.sio.emit('stream_flushed', {'stream_id': stream_id}, room=sid)

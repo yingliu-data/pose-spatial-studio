@@ -63,3 +63,46 @@ export interface StreamConfig {
   stream_id: string;
   processor_config?: Record<string, any>;
 }
+
+// Object detection result types
+export interface DetectedObject {
+  name: string;
+  confidence: number;
+  bbox: { x: number; y: number; width: number; height: number };
+}
+
+export interface ObjectDetectionData {
+  objects: DetectedObject[];
+  num_objects: number;
+}
+
+// Hand gesture result types
+export interface HandLandmarkPoint {
+  x: number;
+  y: number;
+  z: number;
+}
+
+export interface DetectedHand {
+  landmarks: HandLandmarkPoint[];
+  gesture: string;
+  confidence: number;
+  handedness: string;
+  bbox: { x: number; y: number; width: number; height: number };
+}
+
+export interface HandGestureData {
+  hands: DetectedHand[];
+  num_hands: number;
+}
+
+// Union type for all backend result data
+export type ResultData = PoseData | ObjectDetectionData | HandGestureData;
+
+// Generic backend result (all processors use the pose_result event)
+export interface BackendResult {
+  stream_id: string;
+  frame: string;
+  pose_data: ResultData | null;
+  timestamp_ms: number;
+}

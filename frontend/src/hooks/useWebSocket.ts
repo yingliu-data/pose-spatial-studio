@@ -1,36 +1,28 @@
 import { useEffect, useState, useRef } from 'react';
 import { Socket } from 'socket.io-client';
 import { socketService } from '@/services/socketService';
-import { PoseResult } from '@/types/pose';
+import { type BackendResult } from '@/types/pose';
+import { useAppStore } from '@/stores/appStore';
+
+const RESULT_TIMEOUT_MS = 3000;
+const ACTIVE_STREAM_ID = 'active_stream';
 
 interface UseWebSocketReturn {
   socket: Socket | null;
   connected: boolean;
-  poseResults: Map<string, PoseResult>;
-  clearPoseResult: (streamId: string) => void;
-  flushStream: (streamId: string) => void;
+  flushActiveStream: () => void;
 }
-
-const RESULT_TIMEOUT_MS = 3000;
 
 export function useWebSocket(): UseWebSocketReturn {
   const [socket, setSocket] = useState<Socket | null>(null);
   const [connected, setConnected] = useState(false);
-  const [poseResults, setPoseResults] = useState<Map<string, PoseResult>>(new Map());
-  const lastUpdateTime = useRef<Map<string, number>>(new Map());
+  const lastUpdateTime = useRef(0);
+  const setBackendResult = useAppStore((s) => s.setBackendResult);
 
-  const clearPoseResult = (streamId: string) => {
-    setPoseResults(prev => {
-      const next = new Map(prev);
-      next.delete(streamId);
-      return next;
-    });
-    lastUpdateTime.current.delete(streamId);
-  };
-
-  const flushStream = (streamId: string) => {
-    clearPoseResult(streamId);
-    socket?.emit('flush_stream', { stream_id: streamId });
+  const flushActiveStream = () => {
+    socket?.emit('flush_stream', { stream_id: ACTIVE_STREAM_ID });
+    useAppStore.getState().setBackendResult(null);
+    lastUpdateTime.current = 0;
   };
 
   useEffect(() => {
@@ -46,29 +38,26 @@ export function useWebSocket(): UseWebSocketReturn {
       setConnected(false);
     });
 
-    socketInstance.on('pose_result', (result: PoseResult) => {
+    socketInstance.on('pose_result', (result: BackendResult) => {
       try {
         const age = Date.now() - result.timestamp_ms;
-        console.debug(`[WS] pose_result stream=${result.stream_id} age=${age}ms hasFrame=${!!result.frame} hasPose=${!!result.pose_data}`);
-        if (age > RESULT_TIMEOUT_MS) {
-          console.warn(`[WS] Dropping stale result (age=${age}ms > ${RESULT_TIMEOUT_MS}ms)`);
-          return;
-        }
+        if (age > RESULT_TIMEOUT_MS) return;
 
-        const lastTime = lastUpdateTime.current.get(result.stream_id) || 0;
-        if (result.timestamp_ms >= lastTime) {
-          setPoseResults(prev => new Map(prev).set(result.stream_id, result));
-          lastUpdateTime.current.set(result.stream_id, result.timestamp_ms);
+        if (result.timestamp_ms >= lastUpdateTime.current) {
+          lastUpdateTime.current = result.timestamp_ms;
+          setBackendResult(result);
         }
       } catch (err) {
         console.error('[WS] Error in pose_result handler:', err);
       }
     });
 
-    socketInstance.on('error', (error) => console.error('[WS] Socket error:', error));
+    socketInstance.on('error', (error) =>
+      console.error('[WS] Socket error:', error),
+    );
 
     return () => socketService.disconnect();
-  }, []);
+  }, [setBackendResult]);
 
-  return { socket, connected, poseResults, clearPoseResult, flushStream };
+  return { socket, connected, flushActiveStream };
 }

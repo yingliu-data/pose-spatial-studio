@@ -88,7 +88,7 @@ def merge_configs(user_config: dict) -> dict:
 
 def _convert_model_paths(config: dict) -> dict:
     if "pose_processor" in config:
-        for key in ["pose_landmarker_model_name", "object_detector_model_name"]:
+        for key in ["pose_landmarker_model_name", "object_detector_model_name", "gesture_recognizer_model_name"]:
             if key in config["pose_processor"]:
                 model_name = config["pose_processor"][key]
                 if isinstance(model_name, str) and not model_name.startswith('/'):

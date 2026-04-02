@@ -63,9 +63,9 @@ export const FUNCTION_DEFINITIONS: FunctionDefinition[] = [
   },
   {
     id: 'robotic_control',
-    label: 'Robotic Control',
-    description: 'Control interface (coming soon)',
-    icon: '\u{1F916}',
+    label: 'Avatar Voice Control',
+    description: 'Voice-controlled avatar (coming soon)',
+    icon: '\u{1F399}',
     viewMode: 'placeholder',
     processorType: null,
     modelLabel: '',

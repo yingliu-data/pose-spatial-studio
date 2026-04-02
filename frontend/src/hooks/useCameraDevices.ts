@@ -29,10 +29,6 @@ export function useCameraDevices() {
   }, []);
 
   const requestPermission = useCallback(async () => {
-    if (permissionGranted) {
-      await enumerate();
-      return;
-    }
     setLoading(true);
     try {
       const stream = await navigator.mediaDevices.getUserMedia({ video: true });
@@ -44,7 +40,11 @@ export function useCameraDevices() {
     } finally {
       setLoading(false);
     }
-  }, [permissionGranted, enumerate]);
+  }, [enumerate]);
+
+  const resetPermission = useCallback(() => {
+    setPermissionGranted(false);
+  }, []);
 
   useEffect(() => {
     // Try enumeration without permission (labels may be empty)
@@ -54,5 +54,5 @@ export function useCameraDevices() {
       navigator.mediaDevices.removeEventListener('devicechange', enumerate);
   }, [enumerate]);
 
-  return { devices, loading, permissionGranted, requestPermission };
+  return { devices, loading, permissionGranted, requestPermission, resetPermission };
 }

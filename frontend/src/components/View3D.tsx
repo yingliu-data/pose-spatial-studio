@@ -138,30 +138,23 @@ export function View3D({ socket }: View3DProps) {
           ))}
         </select>
         {isSwitching && <span style={{ fontSize: 10, color: '#ff9f0a' }}>Switching...</span>}
-      </div>
-
-      {/* Avatar/Skeleton toggle */}
-      {isStreamActive && (
+        <span style={{ color: 'rgba(255,255,255,0.3)' }}>|</span>
         <button
           onClick={toggleRendererType}
           style={{
-            position: 'absolute',
-            top: 12,
-            right: 14,
-            background: 'rgba(0,0,0,0.5)',
+            background: 'none',
             border: '1px solid rgba(255,255,255,0.2)',
-            borderRadius: 8,
-            padding: '4px 10px',
+            borderRadius: 4,
+            padding: '2px 6px',
             color: 'rgba(255,255,255,0.8)',
             cursor: 'pointer',
-            fontSize: 12,
-            backdropFilter: 'blur(8px)',
+            fontSize: 11,
           }}
           title={rendererType === 'avatar' ? 'Switch to Skeleton' : 'Switch to Avatar'}
         >
-          {rendererType === 'avatar' ? '\u{1F9CD}' : '\u{1F9B4}'} {rendererType === 'avatar' ? 'Avatar' : 'Skeleton'}
+          {rendererType === 'avatar' ? 'Avatar' : 'Skeleton'}
         </button>
-      )}
+      </div>
 
       {/* Status indicator */}
       <div style={{

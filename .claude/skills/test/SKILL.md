@@ -78,19 +78,21 @@ If tests fail, diagnose and fix before continuing.
 
 2. **Test with video file** (no camera needed):
    - Open `http://localhost:8585`
-   - Reject camera permission if prompted
-   - **Add Stream** → Stream ID = `test` → Source Type = **Video File** → upload `tests/test.mp4`
-   - Test each pose model: **MediaPipe**, **RTMPose**, **YOLO + TCPFormer**
-   - Click **Create & Start Stream** → verify stream initiates → click **Play**
+   - Select **3D Pose Estimation** from the function selector (left sidebar)
+   - Choose source type **Video File** → upload `tests/test.mp4`
+   - Click **Start** → verify stream initializes and video plays
+   - Test model switching: use the model selector dropdown in the 3D view to switch between **MediaPipe** and **YOLO+RTMPose**
+   - Also test **2D Pose Estimation**, **Object Detection**, and **Hand Gesture Recognition** functions
 
 3. **Visual checks** (take screenshots and examine with Read tool):
-   - Camera feed shows the human with a 2D skeleton overlay drawn on the image
-   - **Skeleton mode**: 3D skeleton is a reasonable human body shape and moves naturally
-   - **Avatar mode**: head is above hips, arms are in front of the body, legs are below hips. avatar is not jittering. the movement is like a human.
-   - Pause → switch model via the stream overlay dropdown → Play → re-check all of the above
+   - 2D views: annotated frame shows skeleton overlay drawn on the video
+   - 3D view **Skeleton mode**: 3D skeleton is a reasonable human body shape and moves naturally
+   - 3D view **Avatar mode**: head is above hips, arms are in front of the body, legs are below hips. avatar is not jittering. the movement is like a human.
+   - Toggle between Avatar and Skeleton using the inline button in the 3D view toolbar
+   - Switch model via the dropdown → re-check all of the above
 
 4. **Test with live camera** (when relevant):
-   - Select a camera device instead of video file
+   - Select source type **Camera** → choose a camera device → click **Start**
    - Verify pose landmarks overlay and 3D skeleton/avatar respond in real time
 
 ---
@@ -120,20 +122,21 @@ Validate changes against the staging backend before production deployment.
    ```
 5. **Test with video file:**
    - Open `http://localhost:8585`
-   - Reject camera permission if prompted
-   - **Add Stream** → Stream ID = `test` → Source Type = **Video File** → upload `tests/test.mp4`
-   - Test each pose model: **MediaPipe**, **RTMPose**, **YOLO + TCPFormer**
-   - Click **Create & Start Stream** → verify stream initiates → click **Play**
+   - Select **3D Pose Estimation** from the function selector
+   - Choose source type **Video File** → upload `tests/test.mp4`
+   - Click **Start** → verify stream initializes and video plays
+   - Test model switching between **MediaPipe** and **YOLO+RTMPose**
+   - Also test **2D Pose Estimation**, **Object Detection**, and **Hand Gesture Recognition**
 6.  run the automated staging test:
    ```bash
    cd frontend && VITE_BACKEND_URL=https://pose-backend-staging.yingliu.site npm run dev &
    cd tests && npx playwright test specs/staging-video-test.spec.ts --config=playwright.staging.config.ts --project=chromium
    ```
 7. **Visual verification** — take a screenshot and examine with the Read tool:
-   - Camera feed shows the human with a 2D skeleton overlay drawn on the image
-   - **Skeleton mode**: 3D skeleton is a reasonable human body shape and moves naturally
-   - **Avatar mode**: head is above hips, arms are in front of the body, legs are below hips
-   - Pause → switch model via the stream overlay dropdown → Play → re-check all of the above
+   - 2D views: annotated frame shows skeleton overlay drawn on the video
+   - 3D view **Skeleton mode**: 3D skeleton is a reasonable human body shape and moves naturally
+   - 3D view **Avatar mode**: head is above hips, arms are in front of the body, legs are below hips
+   - Toggle Avatar/Skeleton via inline button → switch model via dropdown → re-check
 8. Check staging backend logs:
    ```bash
    ssh pose-backend "docker exec pose-spatial-studio-backend-staging tail -30 /root/backend/logs/app.log"
@@ -158,13 +161,13 @@ ssh pose-backend "docker exec pose-spatial-studio-backend tail -50 /root/backend
 
 **Visual verification** — run frontend against the production backend, take a screenshot, and examine with the Read tool:
 1. `cd frontend && VITE_BACKEND_URL=https://pose-backend.yingliu.site npm run dev`
-2. Open `http://localhost:8585` → **Add Stream** → Stream ID = `test` → Source Type = **Video File** → upload `tests/test.mp4`
-3. Test each pose model: **MediaPipe**, **RTMPose**, **YOLO + TCPFormer**
-4. Click **Create & Start Stream** → verify stream initiates → click **Play**
+2. Open `http://localhost:8585` → Select **3D Pose Estimation** → Source type **Video File** → upload `tests/test.mp4`
+3. Click **Start** → verify stream initializes → switch models between **MediaPipe** and **YOLO+RTMPose**
+4. Also test **2D Pose Estimation**, **Object Detection**, and **Hand Gesture Recognition**
 5. Verify via screenshot:
-   - Camera feed shows the human with a 2D skeleton overlay drawn on the image
-   - **Skeleton mode**: 3D skeleton is a reasonable human body shape and moves naturally
-   - **Avatar mode**: head is above hips, arms are in front of the body, legs are below hips
+   - 2D views: annotated frame shows skeleton overlay drawn on the video
+   - 3D view **Skeleton mode**: 3D skeleton is a reasonable human body shape and moves naturally
+   - 3D view **Avatar mode**: head is above hips, arms are in front of the body, legs are below hips
 
 See `/ssh-servers` skill for full remote debugging commands.
 

@@ -46,9 +46,18 @@ export function Controls({ connected, socket }: ControlsProps) {
 
     setInitializing(true, 'Requesting camera access...');
 
+    let selectedDeviceId = deviceId;
     if (sourceType === 'camera') {
-      await requestPermission();
-      if (!deviceId) return setInitializing(false);
+      const cameraDevices = await requestPermission();
+      // Auto-select first device if none selected or selection became invalid
+      if (!selectedDeviceId || !cameraDevices.find((d) => d.deviceId === selectedDeviceId)) {
+        selectedDeviceId = cameraDevices[0]?.deviceId ?? '';
+        if (selectedDeviceId) {
+          const dev = cameraDevices[0];
+          setSourceConfig('camera', selectedDeviceId, dev?.label ?? '', null);
+        }
+      }
+      if (!selectedDeviceId) return setInitializing(false);
     }
 
     setInitMessage('Initializing...');

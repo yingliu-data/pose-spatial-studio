@@ -28,19 +28,29 @@ export function useCameraDevices() {
     }
   }, []);
 
-  const requestPermission = useCallback(async () => {
+  const requestPermission = useCallback(async (): Promise<CameraDevice[]> => {
     setLoading(true);
     try {
       const stream = await navigator.mediaDevices.getUserMedia({ video: true });
       stream.getTracks().forEach((t) => t.stop());
       setPermissionGranted(true);
-      await enumerate();
+      const allDevices = await navigator.mediaDevices.enumerateDevices();
+      const cameraDevices = allDevices
+        .filter((d) => d.kind === 'videoinput')
+        .map((d, i) => ({
+          deviceId: d.deviceId,
+          label: d.label || `Camera ${i + 1}`,
+          groupId: d.groupId,
+        }));
+      setDevices(cameraDevices);
+      return cameraDevices;
     } catch (err) {
       console.error('Error requesting camera permission:', err);
+      return [];
     } finally {
       setLoading(false);
     }
-  }, [enumerate]);
+  }, []);
 
   const resetPermission = useCallback(() => {
     setPermissionGranted(false);

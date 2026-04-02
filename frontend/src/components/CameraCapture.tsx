@@ -121,6 +121,7 @@ export function CameraCapture({
               if (processedCanvasRef.current) {
                 onProcessedImageReadyRef.current?.(processedCanvasRef.current);
               }
+              videoRef.current?.play();
             };
 
             return () => {

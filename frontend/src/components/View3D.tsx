@@ -1,4 +1,4 @@
-import { useState, useCallback } from 'react';
+import { useState, useCallback, useEffect } from 'react';
 import { Socket } from 'socket.io-client';
 import { CameraCapture } from '@/components/CameraCapture';
 import { Skeleton3DViewer } from '@/components/Skeleton3DViewer';
@@ -12,7 +12,7 @@ interface View3DProps {
 export function View3D({ socket }: View3DProps) {
   const [videoElement, setVideoElement] = useState<HTMLVideoElement | null>(null);
   const [processedCanvas, setProcessedCanvas] = useState<HTMLCanvasElement | null>(null);
-  const { backendResult, isStreamActive, rendererType, toggleRendererType } = useAppStore();
+  const { backendResult, isStreamActive, rendererType, toggleRendererType, sourceType } = useAppStore();
 
   const onVideoReady = useCallback((video: HTMLVideoElement) => {
     setVideoElement(video);
@@ -21,6 +21,14 @@ export function View3D({ socket }: View3DProps) {
   const onProcessedImageReady = useCallback((canvas: HTMLCanvasElement) => {
     setProcessedCanvas(canvas);
   }, []);
+
+  // Reset video/canvas state when stream stops
+  useEffect(() => {
+    if (!isStreamActive) {
+      setVideoElement(null);
+      setProcessedCanvas(null);
+    }
+  }, [isStreamActive]);
 
   // Cast to PoseResult for the 3D viewer (3D pose always returns PoseData)
   const poseResult = backendResult as PoseResult | null;
@@ -51,7 +59,7 @@ export function View3D({ socket }: View3DProps) {
                 el.play();
               }
             }}
-            style={{ width: '100%', height: '100%', objectFit: 'contain', backgroundColor: '#000', borderRadius: 16 }}
+            style={{ width: '100%', height: '100%', objectFit: 'contain', backgroundColor: '#000', borderRadius: 16, transform: sourceType === 'camera' ? 'scaleX(-1)' : undefined }}
             playsInline
             muted
             autoPlay

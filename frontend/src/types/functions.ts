@@ -10,6 +10,7 @@ export type ViewMode = '2d' | '3d' | 'placeholder';
 export type ProcessorType =
   | 'yolo_pose_2d'
   | 'mediapipe'
+  | 'rtmpose'
   | 'mediapipe_object_detection'
   | 'mediapipe_hand_gesture';
 
@@ -39,8 +40,8 @@ export const FUNCTION_DEFINITIONS: FunctionDefinition[] = [
     description: '3D interactive space with skeleton/avatar',
     icon: '\u{1F9BE}',
     viewMode: '3d',
-    processorType: 'mediapipe',
-    modelLabel: 'MediaPipe',
+    processorType: 'rtmpose',
+    modelLabel: 'YOLO + RTMPose',
   },
   {
     id: 'object_detection',

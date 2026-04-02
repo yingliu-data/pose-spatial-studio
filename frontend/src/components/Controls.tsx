@@ -1,3 +1,4 @@
+import { useEffect } from 'react';
 import { Socket } from 'socket.io-client';
 import { useCameraDevices } from '@/hooks/useCameraDevices';
 import { StreamInitService } from '@/services/streamInitService';
@@ -30,6 +31,15 @@ export function Controls({ connected, socket }: ControlsProps) {
 
   const { devices, loading: devicesLoading, requestPermission, resetPermission } = useCameraDevices();
 
+  const needsCamera = functionDef?.processorType !== null;
+
+  // Request camera permission when a camera-based function is first selected
+  useEffect(() => {
+    if (activeFunction && needsCamera && sourceType === 'camera') {
+      requestPermission();
+    }
+  }, [activeFunction]);
+
   const handleFunctionSelect = (fnId: string) => {
     // If switching away from active stream, clean up
     if (isStreamActive && socket) {
@@ -47,8 +57,6 @@ export function Controls({ connected, socket }: ControlsProps) {
     if (sourceType === 'camera' && !deviceId) return;
 
     setInitializing(true, 'Initializing...');
-
-    setInitMessage('Initializing...');
 
     try {
       const processorType = activeFunction === 'pose_3d'
@@ -89,8 +97,6 @@ export function Controls({ connected, socket }: ControlsProps) {
     setBackendResult(null);
     resetPermission();
   };
-
-  const needsCamera = functionDef?.processorType !== null;
 
   return (
     <div className="controls">

@@ -40,8 +40,8 @@ export const FUNCTION_DEFINITIONS: FunctionDefinition[] = [
     description: '3D interactive space with skeleton/avatar',
     icon: '\u{1F9BE}',
     viewMode: '3d',
-    processorType: 'rtmpose',
-    modelLabel: 'YOLO + RTMPose',
+    processorType: 'mediapipe',
+    modelLabel: 'MediaPipe',
   },
   {
     id: 'object_detection',

@@ -15,6 +15,7 @@ interface ControlsProps {
 export function Controls({ connected, socket }: ControlsProps) {
   const activeFunction = useAppStore((s) => s.activeFunction);
   const functionDef = useAppStore((s) => s.functionDef);
+  const pose3dProcessorType = useAppStore((s) => s.pose3dProcessorType);
   const sourceType = useAppStore((s) => s.sourceType);
   const deviceId = useAppStore((s) => s.deviceId);
   const videoFile = useAppStore((s) => s.videoFile);
@@ -55,9 +56,13 @@ export function Controls({ connected, socket }: ControlsProps) {
     setInitializing(true, 'Initializing...');
 
     try {
+      const processorType = activeFunction === 'pose_3d'
+        ? pose3dProcessorType
+        : functionDef.processorType;
+
       const config = {
         pose_processor: {
-          processor_type: functionDef.processorType,
+          processor_type: processorType,
         },
       };
 

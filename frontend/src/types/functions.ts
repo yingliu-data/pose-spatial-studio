@@ -5,7 +5,7 @@ export type AppFunction =
   | 'hand_gesture'
   | 'robotic_control';
 
-export type ViewMode = '2d' | '3d' | 'placeholder';
+export type ViewMode = '2d' | '3d' | 'voice' | 'placeholder';
 
 export type ProcessorType =
   | 'yolo_pose_2d'
@@ -64,10 +64,10 @@ export const FUNCTION_DEFINITIONS: FunctionDefinition[] = [
   {
     id: 'robotic_control',
     label: 'Avatar Voice Control',
-    description: 'Voice-controlled avatar (coming soon)',
+    description: 'Voice-controlled avatar',
     icon: '\u{1F399}',
-    viewMode: 'placeholder',
+    viewMode: 'voice',
     processorType: null,
-    modelLabel: '',
+    modelLabel: 'Second Brain',
   },
 ];

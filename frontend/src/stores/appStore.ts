@@ -6,6 +6,7 @@ import {
   FUNCTION_DEFINITIONS,
 } from '@/types/functions';
 import { type BackendResult } from '@/types/pose';
+import { type ChatMessage } from '@/types/chat';
 
 export type RendererType = 'avatar' | 'stickball';
 
@@ -34,6 +35,10 @@ interface AppState {
   rendererType: RendererType;
   pose3dProcessorType: ProcessorType;
 
+  // Chat state (voice control)
+  chatMessages: ChatMessage[];
+  voiceSessionExpired: boolean;
+
   // Actions
   selectFunction: (fn: AppFunction) => void;
   clearFunction: () => void;
@@ -51,6 +56,10 @@ interface AppState {
   toggleRightSidebar: () => void;
   toggleRendererType: () => void;
   setPose3dProcessorType: (type: ProcessorType) => void;
+  addChatMessage: (msg: ChatMessage) => void;
+  appendToStreamingMessage: (text: string) => void;
+  setSessionExpired: (expired: boolean) => void;
+  resetChat: () => void;
 }
 
 export const useAppStore = create<AppState>((set) => ({
@@ -68,6 +77,8 @@ export const useAppStore = create<AppState>((set) => ({
   rightSidebarCollapsed: true,
   rendererType: 'stickball',
   pose3dProcessorType: 'mediapipe',
+  chatMessages: [],
+  voiceSessionExpired: false,
 
   selectFunction: (fn) =>
     set({
@@ -78,6 +89,8 @@ export const useAppStore = create<AppState>((set) => ({
       isInitializing: false,
       initMessage: '',
       backendResult: null,
+      chatMessages: [],
+      voiceSessionExpired: false,
     }),
 
   clearFunction: () =>
@@ -114,4 +127,21 @@ export const useAppStore = create<AppState>((set) => ({
     })),
 
   setPose3dProcessorType: (type) => set({ pose3dProcessorType: type }),
+
+  addChatMessage: (msg) =>
+    set((s) => ({ chatMessages: [...s.chatMessages, msg] })),
+
+  appendToStreamingMessage: (text) =>
+    set((s) => {
+      const msgs = [...s.chatMessages];
+      const last = msgs[msgs.length - 1];
+      if (last && last.isStreaming) {
+        msgs[msgs.length - 1] = { ...last, content: last.content + text };
+      }
+      return { chatMessages: msgs };
+    }),
+
+  setSessionExpired: (expired) => set({ voiceSessionExpired: expired }),
+
+  resetChat: () => set({ chatMessages: [], voiceSessionExpired: false }),
 }));

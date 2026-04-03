@@ -203,7 +203,7 @@ export function RoboticControlView({ socket }: RoboticControlViewProps) {
       <div style={{ flex: '0 0 55%', display: 'flex', flexDirection: 'column', position: 'relative' }}>
         <div style={{ flex: 1, background: '#000' }}>
           <Canvas>
-            <PerspectiveCamera makeDefault position={[0, 0, 3]} />
+            <PerspectiveCamera makeDefault position={[0, 0, 5]} />
             <OrbitControls enableDamping dampingFactor={0.05} />
             <ambientLight intensity={0.5} />
             <directionalLight position={[10, 10, 5]} intensity={1} />

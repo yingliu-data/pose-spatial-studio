@@ -97,7 +97,7 @@ When a ticket depends on another ticket still in code review, branch from that t
 | 3D Pose Estimation | `mediapipe` (switchable to `rtmpose`) | `processors/mediapipe_processor.py`, `processors/rtmpose_processor.py` |
 | Object Detection | `mediapipe_object_detection` | `processors/mediapipe_object_detector_processor.py` |
 | Hand Gesture Recognition | `mediapipe_hand_gesture` | `processors/mediapipe_hand_gesture_processor.py` |
-| Avatar Voice Control | — (placeholder) | — |
+| Avatar Voice Control | — (SecondBrain guest API) | `services/secondBrainService.ts` |
 
 State management: [frontend/src/stores/appStore.ts](frontend/src/stores/appStore.ts) (Zustand store).
 

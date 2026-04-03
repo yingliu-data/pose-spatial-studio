@@ -8,6 +8,7 @@ import logging
 import config
 from utils.logger import setup_project_logging
 from core.websocket_handler import WebSocketHandler
+from routes.secondbrain_proxy import router as secondbrain_router
 
 setup_project_logging(level=logging.DEBUG if config.DEBUG else logging.INFO)
 logger = logging.getLogger(__name__)
@@ -61,6 +62,8 @@ app.add_middleware(
     allow_methods=["*"],
     allow_headers=["*"],
 )
+
+app.include_router(secondbrain_router)
 
 sio = socketio.AsyncServer(
     async_mode='asgi',

@@ -35,6 +35,11 @@ CORS_ORIGINS = [
 
 SOCKETIO_CORS_ORIGINS = "*"
 
+# SecondBrain agent-api — reachable via Docker internal network
+SECONDBRAIN_INTERNAL_URL = os.getenv(
+    "SECONDBRAIN_INTERNAL_URL", "http://secondbrain-agent-api:8000"
+)
+
 PROJECT_ROOT = get_project_root(marker_dirs=['backend'])
 BASE_DIR = PROJECT_ROOT / "backend"
 MODELS_DIR = BASE_DIR / "models"

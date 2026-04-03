@@ -102,6 +102,10 @@ jobs:
             echo "=== Restarting container (clears zombie processes) ==="
             docker restart $CONTAINER
             sleep 3
+
+            echo "=== Connecting to SecondBrain Docker network ==="
+            docker network connect secondbrain_tunnel_network $CONTAINER 2>/dev/null || true
+
             docker exec -d $CONTAINER bash -c "cd /root/backend && mkdir -p logs && python app.py >> logs/app.log 2>&1"
 
             echo "=== Waiting for startup ==="

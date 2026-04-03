@@ -4,6 +4,7 @@ python-socketio==5.11.1
 opencv-python
 mediapipe
 numpy
+httpx
 rtmlib>=0.0.14
 onnxruntime-gpu
 onnx>=1.15.0

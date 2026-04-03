@@ -1,6 +1,13 @@
 import { type AvatarCommand } from '@/types/chat';
 
+// In production, proxy through the pose-spatial-studio backend (same CORS origin,
+// bypasses Cloudflare Access via Docker internal network).
+// In dev, hit the SecondBrain server directly via VITE_SECOND_BRAIN_URL.
 const SECOND_BRAIN_URL = import.meta.env.VITE_SECOND_BRAIN_URL || '';
+const BACKEND_URL = import.meta.env.VITE_BACKEND_URL || '';
+const GUEST_CHAT_URL = SECOND_BRAIN_URL
+  ? `${SECOND_BRAIN_URL}/api/v1/guest/chat`
+  : `${BACKEND_URL}/api/secondbrain/guest/chat`;
 
 export async function sendGuestMessage(
   message: string,
@@ -10,7 +17,7 @@ export async function sendGuestMessage(
   onDone: () => void,
   signal?: AbortSignal,
 ): Promise<void> {
-  const url = `${SECOND_BRAIN_URL}/api/v1/guest/chat`;
+  const url = GUEST_CHAT_URL;
 
   const response = await fetch(url, {
     method: 'POST',

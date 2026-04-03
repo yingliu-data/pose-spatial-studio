@@ -19,7 +19,6 @@ from processors.base_processor import BaseProcessor
 from processors.data_processor import DataProcessor
 from config import DEFAULT_CONFIG, POSE_WORKERS, MAX_CONCURRENT_STREAMS
 from utils.log_streamer import SocketIOLogHandler
-from utils.kinetic import Converter
 
 logger = logging.getLogger(__name__)
 
@@ -376,35 +375,6 @@ class WebSocketHandler:
                 logging.getLogger().removeHandler(handler)
                 handler.close()
                 logger.info(f"[LOGS] Client {sid} unsubscribed from log stream")
-
-        @self.sio.event
-        async def solve_ik(sid, data):
-            """Receive target joint coordinates, run IK solver, return FK quaternions."""
-            try:
-                request_id = data.get("request_id", "")
-                joints = data.get("joints", {})
-                root_position = data.get("root_position")
-
-                converter = Converter()
-                fk_angles = converter.coordinate2angle(joints)
-
-                fk_data = {}
-                for joint, quat in fk_angles.items():
-                    fk_data[joint] = {**quat, "visibility": 1.0}
-
-                await self.sio.emit('fk_result', {
-                    "request_id": request_id,
-                    "fk_data": fk_data,
-                    "root_position": root_position or {"x": 0, "y": 0, "z": 0},
-                }, room=sid)
-            except Exception as e:
-                logger.error(f"[IK] Error solving IK: {e}", exc_info=True)
-                await self.sio.emit('fk_result', {
-                    "request_id": data.get("request_id", ""),
-                    "fk_data": {},
-                    "root_position": {"x": 0, "y": 0, "z": 0},
-                    "error": str(e),
-                }, room=sid)
 
     async def _process_latest_frame(self, processor_id: str):
         """Process the latest frame for a stream, then check for newer ones."""

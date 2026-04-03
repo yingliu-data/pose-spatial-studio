@@ -2,7 +2,6 @@ import { Socket } from 'socket.io-client';
 import { useAppStore } from '@/stores/appStore';
 import { View2D } from '@/components/View2D';
 import { View3D } from '@/components/View3D';
-import { RoboticControlView } from '@/components/RoboticControlView';
 
 interface FunctionViewerProps {
   socket: Socket | null;
@@ -52,8 +51,6 @@ export function FunctionViewer({ socket }: FunctionViewerProps) {
       return <View2D socket={socket} />;
     case '3d':
       return <View3D socket={socket} />;
-    case 'voice':
-      return <RoboticControlView socket={socket} />;
     case 'placeholder':
       return <PlaceholderView />;
     default:

@@ -4,6 +4,25 @@ All notable changes to the Pose Spatial Studio project will be documented in thi
 
 The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.0.0/).
 
+## [1.4.1] - 3 April 2026
+
+### Added
+- Avatar Voice Control: voice/text-controlled 3D avatar powered by SecondBrain guest chat API
+- RoboticControlView component with Three.js avatar + ChatPanel side-by-side layout
+- ChatPanel component with text input, voice recognition (Web Speech API), and SSE streaming
+- useSessionTimer hook (60s guest session with countdown)
+- useVoiceRecognition hook (Web Speech API wrapper)
+- secondBrainService for SSE streaming to SecondBrain guest endpoint
+- Chat state in appStore (messages, streaming, session expiry)
+- `voice` view mode in FunctionDefinition and FunctionViewer routing
+- Backend `solve_ik` WebSocket event: converts joint coordinates to FK quaternions via Converter
+- Playwright E2E tests for avatar voice control (8 tests)
+- Integration test for solve_ik (tests/test_solve_ik.py) with local and Socket.IO modes
+
+### Changed
+- Avatar Voice Control function: viewMode `placeholder` → `voice`, modelLabel → `Second Brain`
+- Updated description from "Voice-controlled avatar (coming soon)" to "Voice-controlled avatar"
+
 ## [1.4.0] - 2 April 2026
 
 ### Added

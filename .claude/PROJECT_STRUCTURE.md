@@ -48,20 +48,25 @@ pose-spatial-studio/
 │   │   ├── components/
 │   │   │   ├── CameraCapture.tsx     # Camera/video source lifecycle, 10 FPS capture, backpressure
 │   │   │   ├── Controls.tsx          # Function selector, source/device picker, start/stop
-│   │   │   ├── FunctionViewer.tsx    # Routes to View2D, View3D, or placeholder by viewMode
+│   │   │   ├── FunctionViewer.tsx    # Routes to View2D, View3D, RoboticControlView, or placeholder by viewMode
 │   │   │   ├── View2D.tsx            # 2D canvas viewer with camera mirroring
 │   │   │   ├── View3D.tsx            # 3D scene with model selector, renderer toggle
 │   │   │   ├── Skeleton3DViewer.tsx  # Three.js canvas: video plane + skeleton + controls
 │   │   │   ├── LogPanel.tsx          # Real-time backend log viewer (right sidebar)
+│   │   │   ├── ChatPanel.tsx        # Chat UI with text input, voice recognition, SSE streaming
+│   │   │   ├── RoboticControlView.tsx # Avatar + ChatPanel side-by-side layout for voice control
 │   │   │   └── DataAnalysis_.tsx     # Placeholder (unused)
 │   │   ├── hooks/
 │   │   │   ├── useCameraDevices.ts   # Camera device enumeration + permission management
 │   │   │   ├── useLogStream.ts       # Backend log subscription (rolling 1000-entry buffer)
+│   │   │   ├── useSessionTimer.ts   # 60s guest session countdown timer
+│   │   │   ├── useVoiceRecognition.ts # Web Speech API wrapper for voice input
 │   │   │   └── useWebSocket.ts       # Socket connection + stale result filtering
 │   │   ├── services/
 │   │   │   ├── socketService.ts      # Socket.IO singleton client (VITE_BACKEND_URL)
 │   │   │   ├── streamInitService.ts  # Async stream init with model switching, 60s timeout
-│   │   │   └── streamService.ts      # Per-stream frame transmission
+│   │   │   ├── streamService.ts      # Per-stream frame transmission
+│   │   │   └── secondBrainService.ts # SSE streaming to SecondBrain guest chat endpoint
 │   │   ├── stores/
 │   │   │   └── appStore.ts           # Zustand store (function, source, stream, renderer state)
 │   │   ├── three/
@@ -72,6 +77,7 @@ pose-spatial-studio/
 │   │   │   └── connections.ts        # Skeleton bone connection topology
 │   │   └── types/
 │   │       ├── functions.ts          # Function definitions, processor types, view modes
+│   │       ├── chat.ts              # Chat message, session, and streaming types
 │   │       └── pose.ts              # Landmark, PoseData, DetectedObject, DetectedHand types
 │   ├── public/
 │   │   └── avatars/skeleton.glb      # Mixamo rigged skeleton model
@@ -96,10 +102,12 @@ pose-spatial-studio/
 │       └── ssh-servers/SKILL.md      # Remote server access
 │
 ├── tests/
+│   ├── test_solve_ik.py              # Integration test for solve_ik (local + Socket.IO)
 │   ├── playwright.config.ts          # Playwright config (production)
 │   ├── playwright.staging.config.ts  # Playwright config (staging)
 │   └── specs/
 │       ├── pose-validation.spec.ts   # E2E pose detection + 3D rendering tests
+│       ├── avatar-voice-control.spec.ts # E2E avatar voice control tests (8 tests)
 │       └── staging-video-test.spec.ts # Staging-specific video upload tests
 │
 ├── README.md                         # Project overview and setup guide
@@ -119,7 +127,7 @@ The app operates in single-function mode with five available functions:
 | 3D Pose Estimation | `mediapipe` or `rtmpose` | 3D | Switchable 3D model with avatar/skeleton rendering |
 | Object Detection | `mediapipe_object_detection` | 2D | EfficientDet bounding boxes + labels |
 | Hand Gesture Recognition | `mediapipe_hand_gesture` | 2D | Per-hand landmarks + gesture classification |
-| Avatar Voice Control | — | placeholder | Coming soon |
+| Avatar Voice Control | — (SecondBrain) | voice | Voice/text commands → SecondBrain → solve_ik → avatar |
 
 ## Core Components
 
@@ -143,6 +151,7 @@ The app operates in single-function mode with five available functions:
 - Per-stream timing metrics exposed on `/health`
 - Real-time log streaming (`subscribe_logs` / `unsubscribe_logs`)
 - Model switching (`switch_model` event)
+- IK solving (`solve_ik` event → FK quaternion result via Converter)
 - Concurrent stream limit enforcement
 
 **Processors** (all inherit from `base_processor.py`):
@@ -170,7 +179,7 @@ The app operates in single-function mode with five available functions:
 
 **Controls.tsx** - Function selector (radio buttons), source type toggle (camera/video), device picker, start/stop buttons. Camera permission requested on Start (not on mount).
 
-**FunctionViewer.tsx** - Routes to View2D, View3D, or placeholder based on `functionDef.viewMode`.
+**FunctionViewer.tsx** - Routes to View2D, View3D, RoboticControlView (`voice`), or placeholder based on `functionDef.viewMode`.
 
 **View2D.tsx** - Canvas-based 2D viewer. Displays annotated frames from backend. Camera source mirroring via `scaleX(-1)`.
 
@@ -182,7 +191,7 @@ The app operates in single-function mode with five available functions:
 
 **LogPanel.tsx** - Real-time backend log viewer. Severity-colored entries (DEBUG/INFO/WARNING/ERROR), auto-scroll, expand/collapse.
 
-**appStore.ts** (Zustand) - Centralized state: `activeFunction`, `sourceType`, `deviceId`, `videoFile`, `isStreamActive`, `isInitializing`, `initMessage`, `backendResult`, `rendererType` (avatar/stickball), `pose3dProcessorType` (mediapipe/rtmpose), sidebar collapse states.
+**appStore.ts** (Zustand) - Centralized state: `activeFunction`, `sourceType`, `deviceId`, `videoFile`, `isStreamActive`, `isInitializing`, `initMessage`, `backendResult`, `rendererType` (avatar/stickball), `pose3dProcessorType` (mediapipe/rtmpose), sidebar collapse states, chat state (messages, streaming, session expiry).
 
 **Three.js renderers:**
 - `AvatarRenderer` — Loads skeleton.glb, applies FK quaternions to Mixamo bones, T-pose caching, smooth interpolation
@@ -262,6 +271,7 @@ VM1 (Frontend Edge)          VM2 (GPU Backend)
 | `switch_model` | `{ stream_id, processor_type }` |
 | `subscribe_logs` | `{}` |
 | `unsubscribe_logs` | `{}` |
+| `solve_ik` | `{ request_id, joints, root_position }` |
 
 ### Server → Client
 
@@ -275,6 +285,7 @@ VM1 (Frontend Edge)          VM2 (GPU Backend)
 | `model_switched` | `{ stream_id, processor_type, message }` |
 | `log_batch` | `[{ level, message, timestamp, logger }]` |
 | `error` | `{ message }` |
+| `fk_result` | `{ request_id, fk_data, root_position, error? }` |
 
 ## Configuration
 
@@ -289,6 +300,7 @@ MAX_CONCURRENT_STREAMS = 3              # env var override
 ### Frontend (environment files)
 - `.env.local` → `VITE_BACKEND_URL=http://localhost:49101`
 - `.env.production` → `VITE_BACKEND_URL=https://pose-backend.yingliu.site`
+- `VITE_SECOND_BRAIN_URL` → SecondBrain guest chat API base URL
 
 ## Tech Stack
 

@@ -9,6 +9,7 @@ Real-time pose estimation, object detection, and 3D avatar rendering with WebSoc
 - **Object Detection** — EfficientDet-Lite2 bounding boxes and labels
 - **Hand Gesture Recognition** — Per-hand landmark tracking with gesture classification
 - **Live 3D Avatar** — Mixamo-rigged avatar driven by FK quaternions from pose estimation
+- **Avatar Voice Control** — Voice/text commands to control 3D avatar via SecondBrain AI
 - **Camera & Video Input** — Live camera streams or video file upload
 - **Real-time Log Streaming** — Backend logs streamed live to the frontend
 - **Auto-Deployment** — GitHub Actions CI/CD to production and staging
@@ -60,6 +61,7 @@ Open `http://localhost:8585` in your browser.
    - 3D view supports orbit controls (rotate, pan, zoom) and toggle between Avatar and Skeleton rendering
    - 3D Pose supports model switching between MediaPipe and YOLO+RTMPose
 5. **View logs** in the right sidebar panel for real-time backend diagnostics
+6. **Avatar Voice Control** — select from function menu, type or speak commands like "wave your right hand"
 
 ## Architecture
 
@@ -119,6 +121,7 @@ See [PROJECT_STRUCTURE.md](./.claude/PROJECT_STRUCTURE.md) for detailed document
 | `cleanup_processor` | `{ stream_id }` | Tear down processor |
 | `switch_model` | `{ stream_id, processor_type }` | Switch 3D pose model |
 | `subscribe_logs` | `{}` | Start receiving backend logs |
+| `solve_ik` | `{ request_id, joints, root_position }` | Send joint coordinates for IK solving |
 
 ### Server → Client
 
@@ -128,6 +131,7 @@ See [PROJECT_STRUCTURE.md](./.claude/PROJECT_STRUCTURE.md) for detailed document
 | `pose_result` | `{ stream_id, frame (base64), pose_data, timestamp_ms }` | Processed frame + data |
 | `stream_error` | `{ stream_id, message, active_streams?, max_streams? }` | Error with capacity info |
 | `log_batch` | `[{ level, message, timestamp, logger }]` | Batched log entries |
+| `fk_result` | `{ request_id, fk_data, root_position, error? }` | FK quaternion result |
 
 ### REST Endpoints
 
@@ -156,7 +160,7 @@ VM1 (Frontend)               VM2 (GPU Backend)
 | Layer | Technologies |
 |-------|-------------|
 | **Backend** | Python 3.13, FastAPI, Socket.IO, MediaPipe, rtmlib (RTMPose3D), Ultralytics (YOLOv8), PyTorch (TCPFormer), OpenCV |
-| **Frontend** | React 19, TypeScript, Three.js, React Three Fiber, Drei, Zustand, Socket.IO Client, Vite |
+| **Frontend** | React 19, TypeScript, Three.js, React Three Fiber, Drei, Zustand, Socket.IO Client, SecondBrain (guest chat API), Vite |
 | **Testing** | Playwright (E2E, production + staging) |
 | **CI/CD** | GitHub Actions, Cloudflare Tunnels, rsync |
 | **Infra** | Nginx, Docker, NVIDIA CUDA, Cloudflare (TLS, WAF) |
@@ -174,6 +178,7 @@ MAX_CONCURRENT_STREAMS = 3                         # Server-wide limit
 ### Frontend (environment files)
 - `.env.local` → `VITE_BACKEND_URL=http://localhost:49101`
 - `.env.production` → `VITE_BACKEND_URL=https://pose-backend.yingliu.site`
+- `VITE_SECOND_BRAIN_URL` → SecondBrain guest chat API base URL
 
 ## Testing
 

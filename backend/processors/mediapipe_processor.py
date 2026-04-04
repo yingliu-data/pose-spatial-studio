@@ -3,11 +3,8 @@ import mediapipe as mp
 import numpy as np
 from typing import Dict, Any, Optional, List
 import logging
-import threading
 from processors.base_processor import BaseProcessor
 import config
-import subprocess
-import os
 
 from utils.kinetic import Converter
 
@@ -76,33 +73,15 @@ class MediaPipeProcessor(BaseProcessor):
         self.config = config.merge_configs(config_dict)
         pose_processor_config = self.config['pose_processor']
         self.pose_landmarker_model_path = pose_processor_config['pose_landmarker_model_name']
-        self.object_detector_model_path = pose_processor_config['object_detector_model_name']
         self.min_detection_confidence = pose_processor_config['min_detection_confidence']
         self.min_tracking_confidence = pose_processor_config['min_tracking_confidence']
         self.min_presence_confidence = pose_processor_config['min_presence_confidence']
         self.pose_landmarker_frame_width = pose_processor_config['pose_landmarker_frame_width']
         self.pose_landmarker_frame_height = pose_processor_config['pose_landmarker_frame_height']
         self.num_poses = pose_processor_config['num_poses']
-        self.object_detector_frame_width = pose_processor_config['object_detector_frame_width']
-        self.object_detector_frame_height = pose_processor_config['object_detector_frame_height']
         self.device = pose_processor_config.get('device', 'cpu')
-        self.source_type = pose_processor_config.get('source_type', 'camera')
         self.landmarker = None
-        self.object_detector = None
         self.last_timestamp = 0
-        # LIVE_STREAM mode (camera) needs callbacks and a lock for async results
-        if self.source_type == 'camera':
-            self.result_lock = threading.Lock()
-            self.latest_pose_result = None
-            self.latest_object_result = None
-
-    def _pose_result_callback(self, result: mp.tasks.vision.PoseLandmarkerResult, output_image: mp.Image, timestamp_ms: int):
-        with self.result_lock:
-            self.latest_pose_result = result
-
-    def _detection_result_callback(self, result: mp.tasks.vision.ObjectDetectorResult, output_image: mp.Image, timestamp_ms: int):
-        with self.result_lock:
-            self.latest_object_result = result
 
     def _get_delegate(self) -> 'mp.tasks.BaseOptions.Delegate':
         """Return GPU delegate if device is cuda, otherwise CPU."""
@@ -113,27 +92,9 @@ class MediaPipeProcessor(BaseProcessor):
         return mp.tasks.BaseOptions.Delegate.CPU
 
     def _try_initialize_with_delegate(self, delegate) -> bool:
-        """Attempt to create MediaPipe tasks with the given delegate."""
-        if not os.path.exists(self.object_detector_model_path):
-            model_url = MODEL_LINK.get(os.path.basename(self.object_detector_model_path))
-            if model_url is None:
-                raise ValueError(f"No download URL found for model {self.object_detector_model_path}")
-            subprocess.run(["wget", "-O", self.object_detector_model_path, model_url], check=True)
-
-        use_live = self.source_type == 'camera'
-        running_mode = mp.tasks.vision.RunningMode.LIVE_STREAM if use_live else mp.tasks.vision.RunningMode.VIDEO
-        logger.info(f"MediaPipe running mode: {running_mode.name} (source_type={self.source_type})")
-
-        od_kwargs = dict(
-            base_options=mp.tasks.BaseOptions(
-                model_asset_path=self.object_detector_model_path,
-                delegate=delegate),
-            running_mode=running_mode,
-            max_results=5)
-        if use_live:
-            od_kwargs['result_callback'] = self._detection_result_callback
-        self.object_detector = mp.tasks.vision.ObjectDetector.create_from_options(
-            mp.tasks.vision.ObjectDetectorOptions(**od_kwargs))
+        """Attempt to create MediaPipe PoseLandmarker with the given delegate."""
+        running_mode = mp.tasks.vision.RunningMode.VIDEO
+        logger.info(f"MediaPipe running mode: {running_mode.name}")
 
         lm_kwargs = dict(
             base_options=mp.tasks.BaseOptions(
@@ -145,8 +106,6 @@ class MediaPipeProcessor(BaseProcessor):
             min_pose_presence_confidence=self.min_presence_confidence,
             min_tracking_confidence=self.min_tracking_confidence,
             output_segmentation_masks=False)
-        if use_live:
-            lm_kwargs['result_callback'] = self._pose_result_callback
         self.landmarker = mp.tasks.vision.PoseLandmarker.create_from_options(
             mp.tasks.vision.PoseLandmarkerOptions(**lm_kwargs))
         return True
@@ -196,37 +155,10 @@ class MediaPipeProcessor(BaseProcessor):
         annotated_frame = cv2.resize(frame, (self.pose_landmarker_frame_width, self.pose_landmarker_frame_height)).copy()
         
         mp_pose_image = self._mp_image_from_frame(frame, self.pose_landmarker_frame_width, self.pose_landmarker_frame_height)
-        mp_object_image = self._mp_image_from_frame(frame, self.object_detector_frame_width, self.object_detector_frame_height)
 
-        if self.source_type == 'camera':
-            # LIVE_STREAM: async detection, read previous result
-            self.landmarker.detect_async(mp_pose_image, timestamp_ms)
-            self.object_detector.detect_async(mp_object_image, timestamp_ms)
-            with self.result_lock:
-                pose_result = self.latest_pose_result
-                object_result = self.latest_object_result
-        else:
-            # VIDEO: synchronous detection, returns current frame result
-            pose_result = self.landmarker.detect_for_video(mp_pose_image, timestamp_ms)
-            object_result = self.object_detector.detect_for_video(mp_object_image, timestamp_ms)
+        pose_result = self.landmarker.detect_for_video(mp_pose_image, timestamp_ms)
         
         landmarks, world_landmarks = [], []
-        
-        if object_result and object_result.detections:
-            for obj in object_result.detections:
-                if not obj.categories or obj.categories[0].category_name != "person":
-                    continue
-                bounding_box = obj.bounding_box
-                
-                scale_x = self.pose_landmarker_frame_width / self.object_detector_frame_width
-                scale_y = self.pose_landmarker_frame_height / self.object_detector_frame_height
-                
-                x1 = int(bounding_box.origin_x * scale_x)
-                y1 = int(bounding_box.origin_y * scale_y)
-                x2 = int((bounding_box.origin_x + bounding_box.width) * scale_x)
-                y2 = int((bounding_box.origin_y + bounding_box.height) * scale_y)
-                
-                cv2.rectangle(annotated_frame, (x1, y1), (x2, y2), (0, 255, 0), 2)
 
         if pose_result and pose_result.pose_landmarks:
             h, w, _ = annotated_frame.shape
@@ -318,13 +250,6 @@ class MediaPipeProcessor(BaseProcessor):
         if self.landmarker:
             self.landmarker.close()
             self.landmarker = None
-        if self.object_detector:
-            self.object_detector.close()
-            self.object_detector = None
-        if self.source_type == 'camera':
-            with self.result_lock:
-                self.latest_pose_result = None
-                self.latest_object_result = None
         self._is_initialized = False
         logger.info(f"MediaPipe processor {self.processor_id} cleaned up")
 

@@ -2,7 +2,7 @@
 
 Detects all object categories using MediaPipe ObjectDetector (EfficientDet).
 Draws colored bounding boxes and category labels on the video frame.
-Supports both LIVE_STREAM (camera) and VIDEO (file) running modes.
+Uses synchronous VIDEO running mode to avoid LIVE_STREAM segfaults.
 """
 
 import cv2
@@ -10,7 +10,6 @@ import mediapipe as mp
 import numpy as np
 from typing import Dict, Any, Optional
 import logging
-import threading
 import subprocess
 import os
 
@@ -54,17 +53,8 @@ class MediaPipeObjectDetectorProcessor(BaseProcessor):
         self.min_detection_confidence = pose_cfg.get('min_detection_confidence', 0.5)
         self.max_results = int(pose_cfg.get('max_results', 10))
         self.device = pose_cfg.get('device', 'cpu')
-        self.source_type = pose_cfg.get('source_type', 'camera')
         self.object_detector = None
         self.last_timestamp = 0
-
-        if self.source_type == 'camera':
-            self.result_lock = threading.Lock()
-            self.latest_object_result = None
-
-    def _detection_result_callback(self, result, output_image, timestamp_ms):
-        with self.result_lock:
-            self.latest_object_result = result
 
     def _get_delegate(self):
         if self.device == 'cuda':
@@ -82,9 +72,7 @@ class MediaPipeObjectDetectorProcessor(BaseProcessor):
             subprocess.run(
                 ["wget", "-O", self.model_path, model_url], check=True)
 
-        use_live = self.source_type == 'camera'
-        running_mode = (mp.tasks.vision.RunningMode.LIVE_STREAM if use_live
-                        else mp.tasks.vision.RunningMode.VIDEO)
+        running_mode = mp.tasks.vision.RunningMode.VIDEO
         logger.info(f"ObjectDetector running mode: {running_mode.name}")
 
         od_kwargs = dict(
@@ -94,8 +82,6 @@ class MediaPipeObjectDetectorProcessor(BaseProcessor):
             running_mode=running_mode,
             max_results=self.max_results,
             score_threshold=self.min_detection_confidence)
-        if use_live:
-            od_kwargs['result_callback'] = self._detection_result_callback
         self.object_detector = (
             mp.tasks.vision.ObjectDetector.create_from_options(
                 mp.tasks.vision.ObjectDetectorOptions(**od_kwargs)))
@@ -128,9 +114,6 @@ class MediaPipeObjectDetectorProcessor(BaseProcessor):
         if self.object_detector:
             self.object_detector.close()
             self.object_detector = None
-        if self.source_type == 'camera':
-            with self.result_lock:
-                self.latest_object_result = None
         self._is_initialized = False
         logger.info(
             f"ObjectDetector processor {self.processor_id} cleaned up")
@@ -163,14 +146,9 @@ class MediaPipeObjectDetectorProcessor(BaseProcessor):
             data=cv2.resize(frame_rgb,
                             (self.frame_width, self.frame_height)))
 
-        # Run detection
-        if self.source_type == 'camera':
-            self.object_detector.detect_async(mp_image, timestamp_ms)
-            with self.result_lock:
-                object_result = self.latest_object_result
-        else:
-            object_result = self.object_detector.detect_for_video(
-                mp_image, timestamp_ms)
+        # Run detection (synchronous VIDEO mode)
+        object_result = self.object_detector.detect_for_video(
+            mp_image, timestamp_ms)
 
         objects = []
         if object_result and object_result.detections:

@@ -47,6 +47,9 @@ COCO133_TO_OUTPUT_JOINTS = {
 _Z_RANGE = 2.1744869      # dataset statistic: max root-relative depth in meters
 _Z_INPUT_HALF = 144.0     # codec input_size[2] / 2 = 288 / 2 (z dimension)
 _TORSO_LEG_HEIGHT = 1.35  # approximate shoulder-to-ankle height in meters
+# Scale factor to convert model-input-space x,y (pixels) to meters.
+# Model input is 288x384, z_range covers 288 pixels → 2.17m, so ~0.015 m/pixel.
+_XY_SCALE = _Z_RANGE / _Z_INPUT_HALF  # ≈ 0.015 m/pixel
 
 
 class RTMPoseProcessor(BaseProcessor):
@@ -212,8 +215,8 @@ class RTMPoseProcessor(BaseProcessor):
                     continue
 
                 landmark_dict[joint_name] = {
-                    "x": float(np.mean([person_3d[i][0] - hip_3d_x for i in valid])),
-                    "y": float(np.mean([person_3d[i][1] - hip_3d_y for i in valid])),
+                    "x": float(np.mean([person_3d[i][0] - hip_3d_x for i in valid])) * _XY_SCALE,
+                    "y": float(np.mean([person_3d[i][1] - hip_3d_y for i in valid])) * _XY_SCALE,
                     "z": float(np.mean([person_3d[i][2] - hip_3d_z for i in valid])),
                     "visibility": float(np.mean([person_scores[i] for i in valid])),
                     "presence": float(np.mean([person_scores[i] for i in valid])),

@@ -47,9 +47,6 @@ COCO133_TO_OUTPUT_JOINTS = {
 _Z_RANGE = 2.1744869      # dataset statistic: max root-relative depth in meters
 _Z_INPUT_HALF = 144.0     # codec input_size[2] / 2 = 288 / 2 (z dimension)
 _TORSO_LEG_HEIGHT = 1.35  # approximate shoulder-to-ankle height in meters
-# Scale factor to convert model-input-space x,y (pixels) to meters.
-# Model input is 288x384, z_range covers 288 pixels → 2.17m, so ~0.015 m/pixel.
-_XY_SCALE = _Z_RANGE / _Z_INPUT_HALF  # ≈ 0.015 m/pixel
 
 
 class RTMPoseProcessor(BaseProcessor):
@@ -85,12 +82,15 @@ class RTMPoseProcessor(BaseProcessor):
         frame = np.ascontiguousarray(frame)
         keypoints_3d, scores, keypoints_simcc, keypoints_2d = self.pose_tracker(frame)
 
-        # Fix rtmlib z-depth bug: rtmlib decodes z using image height (384/2=192)
-        # but the model codec uses z_input_size (288/2=144). Re-decode from raw
-        # simcc pixel values to get correct root-relative depth in meters.
+        # Decode all 3 axes from raw simcc values for consistent coordinates.
+        # keypoints_simcc is in codec pixel space: input_size=(288, 384, 288).
+        # Convert to centered, scaled metric coordinates.
         if keypoints_3d is not None and len(keypoints_3d) > 0:
-            z_pixel = keypoints_simcc[..., 2]
-            keypoints_3d[..., 2] = (z_pixel / _Z_INPUT_HALF - 1.0) * _Z_RANGE
+            _X_HALF = 144.0   # 288 / 2
+            _Y_HALF = 192.0   # 384 / 2
+            keypoints_3d[..., 0] = (keypoints_simcc[..., 0] / _X_HALF - 1.0) * _Z_RANGE
+            keypoints_3d[..., 1] = (keypoints_simcc[..., 1] / _Y_HALF - 1.0) * _Z_RANGE
+            keypoints_3d[..., 2] = (keypoints_simcc[..., 2] / _Z_INPUT_HALF - 1.0) * _Z_RANGE
 
         annotated_frame = draw_skeleton(frame, keypoints_2d, scores, kpt_thr=0.5)
         annotated_frame = cv2.resize(annotated_frame, (640, 480))
@@ -215,8 +215,8 @@ class RTMPoseProcessor(BaseProcessor):
                     continue
 
                 landmark_dict[joint_name] = {
-                    "x": float(np.mean([person_3d[i][0] - hip_3d_x for i in valid])) * _XY_SCALE,
-                    "y": float(np.mean([person_3d[i][1] - hip_3d_y for i in valid])) * _XY_SCALE,
+                    "x": float(np.mean([person_3d[i][0] - hip_3d_x for i in valid])),
+                    "y": float(np.mean([person_3d[i][1] - hip_3d_y for i in valid])),
                     "z": float(np.mean([person_3d[i][2] - hip_3d_z for i in valid])),
                     "visibility": float(np.mean([person_scores[i] for i in valid])),
                     "presence": float(np.mean([person_scores[i] for i in valid])),

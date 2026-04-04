@@ -47,7 +47,6 @@ COCO133_TO_OUTPUT_JOINTS = {
 _Z_RANGE = 2.1744869      # dataset statistic: max root-relative depth in meters
 _Z_INPUT_HALF = 144.0     # codec input_size[2] / 2 = 288 / 2 (z dimension)
 _TORSO_LEG_HEIGHT = 1.35  # approximate shoulder-to-ankle height in meters
-_MEDIAPIPE_BODY_SCALE = 0.85  # typical MediaPipe neck-to-ankle span in world units
 
 
 class RTMPoseProcessor(BaseProcessor):
@@ -69,6 +68,7 @@ class RTMPoseProcessor(BaseProcessor):
             device=self.device
         )
         self._z_root_filter = MedianFilter(window_size=5)
+        self._root_positions = []
         logger.info(f"RTMpose 3D processor {self.processor_id} initialized")
         return True
 
@@ -114,14 +114,13 @@ class RTMPoseProcessor(BaseProcessor):
         fk_data = self._fk_processing(world_landmarks)
 
         root_position = None
-        if world_landmarks:
-            hip_data = world_landmarks[0].get("hipCentre", {})
-            if hip_data:
-                root_position = {
-                    "x": float(hip_data.get("x", 0)),
-                    "y": float(-hip_data.get("y", 0)),
-                    "z": float(-hip_data.get("z", 0))
-                }
+        if self._root_positions:
+            rp = self._root_positions[0]
+            root_position = {
+                "x": float(rp["x"]),
+                "y": float(-rp["y"]),
+                "z": float(-rp["z"])
+            }
 
         return {
             "processed_frame": annotated_frame,
@@ -164,21 +163,25 @@ class RTMPoseProcessor(BaseProcessor):
                                 keypoints_2d: np.ndarray,
                                 scores: np.ndarray,
                                 w: int, h: int) -> List[Dict]:
-        """Build 3D world landmarks combining 2D image-space x,y with 3D z.
+        """Build 3D world landmarks using model's root-relative 3D coordinates.
 
-        Uses keypoints_2d (inverse-affine-transformed to image space by rtmlib)
-        for x,y with per-joint depth-corrected perspective unprojection.
-        Each joint's absolute depth (z_root + z_relative) is used instead of
-        a constant z_root, producing consistent 3D positions for accurate
-        FK bone direction computation. z comes from keypoints_3d (already
-        corrected for rtmlib's codec mismatch).
+        Uses keypoints_3d directly for skeleton shape (consistent scale
+        regardless of pose). Root position is computed separately via
+        perspective unprojection for scene placement.
         """
-        f_est = float(max(w, h))  # estimated focal length (~53° VFOV)
+        f_est = float(max(w, h))
+        self._root_positions = []
 
         result = []
         for person_3d, person_2d, person_scores in zip(
                 keypoints_3d, keypoints_2d, scores):
-            # Estimate root depth from visible body extent (indices 5-16)
+            # Compute hip center in 3D model space (root reference)
+            hip_indices = [11, 12]
+            hip_3d_x = float(np.mean([person_3d[i][0] for i in hip_indices]))
+            hip_3d_y = float(np.mean([person_3d[i][1] for i in hip_indices]))
+            hip_3d_z = float(np.mean([person_3d[i][2] for i in hip_indices]))
+
+            # Compute root position via perspective unprojection (for scene placement)
             visible_ys = [person_2d[i][1] for i in range(5, 17)
                           if i < len(person_2d) and person_scores[i] > 0.3]
             if len(visible_ys) >= 2:
@@ -186,19 +189,21 @@ class RTMPoseProcessor(BaseProcessor):
                 z_root = _TORSO_LEG_HEIGHT * f_est / max(body_height_px, 50.0)
             else:
                 z_root = 3.0
-
-            # Smooth z_root across frames to reduce scale jitter
             z_root = float(self._z_root_filter.filter(np.array([z_root]))[0])
 
-            # Person center in image space (average of hip keypoints)
-            hip_indices = [11, 12]
-            valid_hips = [i for i in hip_indices if i < len(person_2d)]
-            cx = float(np.mean([person_2d[i][0] for i in valid_hips]))
-            cy = float(np.mean([person_2d[i][1] for i in valid_hips]))
+            valid_hips_2d = [i for i in hip_indices if i < len(person_2d)]
+            cx = float(np.mean([person_2d[i][0] for i in valid_hips_2d]))
+            cy = float(np.mean([person_2d[i][1] for i in valid_hips_2d]))
+            self._root_positions.append({
+                "x": (cx - w / 2) * z_root / f_est,
+                "y": (cy - h / 2) * z_root / f_est,
+                "z": z_root
+            })
 
+            # Build root-relative landmarks from model's 3D output (stable scale)
             landmark_dict = {}
             for joint_name, indices in COCO133_TO_OUTPUT_JOINTS.items():
-                valid = [i for i in indices if i < len(person_2d)]
+                valid = [i for i in indices if i < len(person_3d)]
                 if not valid:
                     landmark_dict[joint_name] = {
                         "x": 0.0, "y": 0.0, "z": 0.0,
@@ -206,30 +211,13 @@ class RTMPoseProcessor(BaseProcessor):
                     }
                     continue
 
-                # Per-joint depth-corrected perspective unprojection:
-                # use each joint's absolute depth instead of constant z_root
-                xs, ys, zs = [], [], []
-                for i in valid:
-                    z_rel = person_3d[i][2]
-                    z_abs = max(z_root + z_rel, 0.5)
-                    xs.append((person_2d[i][0] - cx) * z_abs / f_est)
-                    ys.append((person_2d[i][1] - cy) * z_abs / f_est)
-                    zs.append(z_rel)
-
                 landmark_dict[joint_name] = {
-                    "x": float(np.mean(xs)),
-                    "y": float(np.mean(ys)),
-                    "z": float(np.mean(zs)),
+                    "x": float(np.mean([person_3d[i][0] - hip_3d_x for i in valid])),
+                    "y": float(np.mean([person_3d[i][1] - hip_3d_y for i in valid])),
+                    "z": float(np.mean([person_3d[i][2] - hip_3d_z for i in valid])),
                     "visibility": float(np.mean([person_scores[i] for i in valid])),
                     "presence": float(np.mean([person_scores[i] for i in valid])),
                 }
-
-            scale = 0.3
-            for jd in landmark_dict.values():
-                if isinstance(jd, dict) and 'x' in jd:
-                    jd['x'] *= scale
-                    jd['y'] *= scale
-                    jd['z'] *= scale
 
             result.append(landmark_dict)
         return result

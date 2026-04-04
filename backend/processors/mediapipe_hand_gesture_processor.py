@@ -43,10 +43,10 @@ HAND_CONNECTIONS = frozenset([
 ])
 
 # Colors (BGR)
-_LEFT_HAND_COLOR = (255, 255, 0)   # cyan
-_RIGHT_HAND_COLOR = (255, 0, 255)  # magenta
-_JOINT_COLOR = (0, 255, 0)         # green
-_BONE_COLOR = (255, 128, 0)        # light blue
+_LEFT_HAND_COLOR = (180, 120, 0)   # dark teal
+_RIGHT_HAND_COLOR = (140, 0, 140)  # dark magenta
+_JOINT_COLOR = (0, 180, 0)         # dark green
+_BONE_COLOR = (160, 80, 0)         # dark blue
 
 
 class MediaPipeHandGestureProcessor(BaseProcessor):

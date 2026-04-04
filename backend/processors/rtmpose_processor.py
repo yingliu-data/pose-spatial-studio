@@ -224,7 +224,7 @@ class RTMPoseProcessor(BaseProcessor):
                     "presence": float(np.mean([person_scores[i] for i in valid])),
                 }
 
-            scale = 0.25
+            scale = 0.3
             for jd in landmark_dict.values():
                 if isinstance(jd, dict) and 'x' in jd:
                     jd['x'] *= scale

@@ -68,8 +68,8 @@ export function Skeleton3DViewer({ poseResult, videoElement, processedCanvas, re
     <div style={{ width: '100%', height: '100%', backgroundColor: '#000' }}>
       <ViewerErrorBoundary>
         <Canvas>
-          <PerspectiveCamera makeDefault position={[0, 0, 3]} />
-          <OrbitControls enableDamping dampingFactor={0.05} />
+          <PerspectiveCamera makeDefault position={[0, 1.2, 5]} />
+          <OrbitControls enableDamping dampingFactor={0.05} target={[0, 0.6, 0]} />
 
           <ambientLight intensity={0.5} />
           <directionalLight position={[10, 10, 5]} intensity={1} />

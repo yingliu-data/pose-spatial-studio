@@ -1,4 +1,4 @@
-import { useEffect } from 'react';
+import { useEffect, useRef } from 'react';
 import { Socket } from 'socket.io-client';
 import { useCameraDevices } from '@/hooks/useCameraDevices';
 import { StreamInitService } from '@/services/streamInitService';
@@ -30,6 +30,9 @@ export function Controls({ connected, socket }: ControlsProps) {
   const setBackendResult = useAppStore((s) => s.setBackendResult);
 
   const { devices, loading: devicesLoading, requestPermission, resetPermission } = useCameraDevices();
+
+  const comingSoonClicks = useRef(0);
+  const comingSoonTimer = useRef<ReturnType<typeof setTimeout>>();
 
   const needsCamera = functionDef?.processorType !== null;
 
@@ -107,7 +110,7 @@ export function Controls({ connected, socket }: ControlsProps) {
       {/* Function Menu */}
       <div className="section-label">FUNCTIONS</div>
       <div className="function-menu">
-        {FUNCTION_DEFINITIONS.map((fn) => (
+        {FUNCTION_DEFINITIONS.filter((fn) => !fn.hidden).map((fn) => (
           <div
             key={fn.id}
             className={`function-item ${activeFunction === fn.id ? 'active' : ''}`}
@@ -117,6 +120,30 @@ export function Controls({ connected, socket }: ControlsProps) {
             <div className="function-info">
               <div className="function-label">{fn.label}</div>
               <div className="function-desc">{fn.description}</div>
+            </div>
+          </div>
+        ))}
+        {FUNCTION_DEFINITIONS.filter((fn) => fn.hidden).map((fn) => (
+          <div
+            key={fn.id}
+            className={`function-item coming-soon ${activeFunction === fn.id ? 'active' : ''}`}
+            onClick={() => {
+              clearTimeout(comingSoonTimer.current);
+              comingSoonClicks.current += 1;
+              if (comingSoonClicks.current >= 15) {
+                comingSoonClicks.current = 0;
+                handleFunctionSelect(fn.id);
+              } else {
+                comingSoonTimer.current = setTimeout(() => {
+                  comingSoonClicks.current = 0;
+                }, 2000);
+              }
+            }}
+          >
+            <div className="function-icon">{fn.icon}</div>
+            <div className="function-info">
+              <div className="function-label">{fn.label}</div>
+              <div className="function-desc">Coming soon</div>
             </div>
           </div>
         ))}

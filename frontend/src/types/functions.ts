@@ -22,6 +22,7 @@ export interface FunctionDefinition {
   viewMode: ViewMode;
   processorType: ProcessorType | null;
   modelLabel: string;
+  hidden?: boolean;
 }
 
 export const FUNCTION_DEFINITIONS: FunctionDefinition[] = [
@@ -69,5 +70,6 @@ export const FUNCTION_DEFINITIONS: FunctionDefinition[] = [
     viewMode: 'voice',
     processorType: null,
     modelLabel: 'Second Brain',
+    hidden: true,
   },
 ];

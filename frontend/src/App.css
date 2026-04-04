@@ -947,6 +947,15 @@ option { background: #1c1c1e; color: #fff; }
   border: 1px solid rgba(255, 255, 255, 0.08);
 }
 
+.function-item.coming-soon {
+  opacity: 0.45;
+  cursor: default;
+}
+
+.function-item.coming-soon:hover {
+  opacity: 0.55;
+}
+
 .function-item:hover {
   background: rgba(255, 255, 255, 0.08);
   border-color: rgba(255, 255, 255, 0.15);

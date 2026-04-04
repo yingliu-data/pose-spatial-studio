@@ -90,7 +90,7 @@ jobs:
             docker exec $CONTAINER bash -c "cd /root/backend && pip install --break-system-packages -r requirements.txt -q"
 
             echo "=== Fixing onnxruntime GPU (pip install may pull CPU variant) ==="
-            docker exec $CONTAINER bash -c "pip uninstall onnxruntime -y --break-system-packages 2>/dev/null; pip install --break-system-packages onnxruntime-gpu -q"
+            docker exec $CONTAINER bash -c "pip uninstall onnxruntime onnxruntime-gpu -y --break-system-packages 2>/dev/null; pip install --break-system-packages --force-reinstall onnxruntime-gpu -q"
 
             echo "=== Pre-downloading TCPFormer checkpoint (if not cached) ==="
             docker exec $CONTAINER mkdir -p $TCPFORMER_DIR

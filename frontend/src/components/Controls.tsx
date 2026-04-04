@@ -32,7 +32,7 @@ export function Controls({ connected, socket }: ControlsProps) {
   const { devices, loading: devicesLoading, requestPermission, resetPermission } = useCameraDevices();
 
   const comingSoonClicks = useRef(0);
-  const comingSoonTimer = useRef<ReturnType<typeof setTimeout>>();
+  const comingSoonTimer = useRef<ReturnType<typeof setTimeout>>(undefined);
 
   const needsCamera = functionDef?.processorType !== null;
 

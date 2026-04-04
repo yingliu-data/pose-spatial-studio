@@ -82,14 +82,10 @@ class RTMPoseProcessor(BaseProcessor):
         frame = np.ascontiguousarray(frame)
         keypoints_3d, scores, keypoints_simcc, keypoints_2d = self.pose_tracker(frame)
 
-        # Decode all 3 axes from raw simcc values for consistent coordinates.
-        # keypoints_simcc is in codec pixel space: input_size=(288, 384, 288).
-        # Convert to centered, scaled metric coordinates.
+        # Fix z-depth: rtmlib decodes z using image height (384/2=192) instead of
+        # the codec z input size (288/2=144). Re-decode z from raw simcc values.
+        # x,y are kept from keypoints_2d (stable image-space pixels) in _build_world_landmarks.
         if keypoints_3d is not None and len(keypoints_3d) > 0:
-            _X_HALF = 144.0   # 288 / 2
-            _Y_HALF = 192.0   # 384 / 2
-            keypoints_3d[..., 0] = (keypoints_simcc[..., 0] / _X_HALF - 1.0) * _Z_RANGE
-            keypoints_3d[..., 1] = (keypoints_simcc[..., 1] / _Y_HALF - 1.0) * _Z_RANGE
             keypoints_3d[..., 2] = (keypoints_simcc[..., 2] / _Z_INPUT_HALF - 1.0) * _Z_RANGE
 
         annotated_frame = draw_skeleton(frame, keypoints_2d, scores, kpt_thr=0.5)
@@ -166,11 +162,13 @@ class RTMPoseProcessor(BaseProcessor):
                                 keypoints_2d: np.ndarray,
                                 scores: np.ndarray,
                                 w: int, h: int) -> List[Dict]:
-        """Build 3D world landmarks using model's root-relative 3D coordinates.
+        """Build 3D world landmarks using 2D keypoints for x,y and simcc z for depth.
 
-        Uses keypoints_3d directly for skeleton shape (consistent scale
-        regardless of pose). Root position is computed separately via
-        perspective unprojection for scene placement.
+        x,y: from keypoints_2d (stable image-space pixels) with perspective
+             unprojection using a shared z_root for all joints — skeleton
+             proportions come from stable 2D pixel ratios.
+        z:   from keypoints_3d (corrected simcc z) — root-relative depth.
+        Root position computed separately for scene placement.
         """
         f_est = float(max(w, h))
         self._root_positions = []
@@ -178,13 +176,9 @@ class RTMPoseProcessor(BaseProcessor):
         result = []
         for person_3d, person_2d, person_scores in zip(
                 keypoints_3d, keypoints_2d, scores):
-            # Compute hip center in 3D model space (root reference)
             hip_indices = [11, 12]
-            hip_3d_x = float(np.mean([person_3d[i][0] for i in hip_indices]))
-            hip_3d_y = float(np.mean([person_3d[i][1] for i in hip_indices]))
-            hip_3d_z = float(np.mean([person_3d[i][2] for i in hip_indices]))
 
-            # Compute root position via perspective unprojection (for scene placement)
+            # Estimate z_root from visible body extent (smoothed)
             visible_ys = [person_2d[i][1] for i in range(5, 17)
                           if i < len(person_2d) and person_scores[i] > 0.3]
             if len(visible_ys) >= 2:
@@ -194,19 +188,25 @@ class RTMPoseProcessor(BaseProcessor):
                 z_root = 3.0
             z_root = float(self._z_root_filter.filter(np.array([z_root]))[0])
 
-            valid_hips_2d = [i for i in hip_indices if i < len(person_2d)]
-            cx = float(np.mean([person_2d[i][0] for i in valid_hips_2d]))
-            cy = float(np.mean([person_2d[i][1] for i in valid_hips_2d]))
+            # Hip center in image space
+            valid_hips = [i for i in hip_indices if i < len(person_2d)]
+            cx = float(np.mean([person_2d[i][0] for i in valid_hips]))
+            cy = float(np.mean([person_2d[i][1] for i in valid_hips]))
+
+            # Root position for scene placement
             self._root_positions.append({
                 "x": (cx - w / 2) * z_root / f_est,
                 "y": (cy - h / 2) * z_root / f_est,
                 "z": z_root
             })
 
-            # Build root-relative landmarks from model's 3D output (stable scale)
+            # Hip center z from corrected simcc (for root-relative depth)
+            hip_3d_z = float(np.mean([person_3d[i][2] for i in hip_indices]))
+
+            # Build landmarks: x,y from 2D pixels (shared z_root), z from simcc
             landmark_dict = {}
             for joint_name, indices in COCO133_TO_OUTPUT_JOINTS.items():
-                valid = [i for i in indices if i < len(person_3d)]
+                valid = [i for i in indices if i < len(person_2d)]
                 if not valid:
                     landmark_dict[joint_name] = {
                         "x": 0.0, "y": 0.0, "z": 0.0,
@@ -214,9 +214,11 @@ class RTMPoseProcessor(BaseProcessor):
                     }
                     continue
 
+                # x,y: perspective unprojection with shared z_root (stable proportions)
+                # z: root-relative depth from corrected simcc
                 landmark_dict[joint_name] = {
-                    "x": float(np.mean([person_3d[i][0] - hip_3d_x for i in valid])),
-                    "y": float(np.mean([person_3d[i][1] - hip_3d_y for i in valid])),
+                    "x": float(np.mean([(person_2d[i][0] - cx) * z_root / f_est for i in valid])),
+                    "y": float(np.mean([(person_2d[i][1] - cy) * z_root / f_est for i in valid])),
                     "z": float(np.mean([person_3d[i][2] - hip_3d_z for i in valid])),
                     "visibility": float(np.mean([person_scores[i] for i in valid])),
                     "presence": float(np.mean([person_scores[i] for i in valid])),

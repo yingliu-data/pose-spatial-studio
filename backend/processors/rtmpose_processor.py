@@ -1,5 +1,5 @@
 import cv2
-from rtmlib import Wholebody3d, draw_skeleton
+from rtmlib import PoseTracker, Wholebody3d, draw_skeleton
 from typing import Optional, List, Dict, Any
 from processors.base_processor import BaseProcessor
 from utils.kinetic import Converter
@@ -59,7 +59,10 @@ class RTMPoseProcessor(BaseProcessor):
 
     def initialize(self) -> bool:
         self._is_initialized = True
-        self.wholebody = Wholebody3d(
+        self.pose_tracker = PoseTracker(
+            Wholebody3d,
+            det_frequency=7,
+            tracking=False,
             mode='balanced',
             to_openpose=False,
             backend=self.backend,
@@ -77,7 +80,7 @@ class RTMPoseProcessor(BaseProcessor):
             return None
 
         frame = np.ascontiguousarray(frame)
-        keypoints_3d, scores, keypoints_simcc, keypoints_2d = self.wholebody(frame)
+        keypoints_3d, scores, keypoints_simcc, keypoints_2d = self.pose_tracker(frame)
 
         # Fix rtmlib z-depth bug: rtmlib decodes z using image height (384/2=192)
         # but the model codec uses z_input_size (288/2=144). Re-decode from raw

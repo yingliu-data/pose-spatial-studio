@@ -182,7 +182,12 @@ export function CameraCapture({
             canvasRef.current.height = videoRef.current.videoHeight;
           }
 
+          if (sourceType === 'camera') {
+            ctx.translate(canvasRef.current.width, 0);
+            ctx.scale(-1, 1);
+          }
           ctx.drawImage(videoRef.current, 0, 0);
+          ctx.setTransform(1, 0, 0, 1, 0, 0);
           isProcessingFrameRef.current = true;
           canvasRef.current.toBlob(
             (blob) => {

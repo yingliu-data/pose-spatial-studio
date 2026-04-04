@@ -9,7 +9,7 @@ Real-time pose estimation, object detection, and 3D avatar rendering with WebSoc
 - **Object Detection** — EfficientDet-Lite2 bounding boxes and labels
 - **Hand Gesture Recognition** — Per-hand landmark tracking with gesture classification
 - **Live 3D Avatar** — Mixamo-rigged avatar driven by FK quaternions from pose estimation
-- **Avatar Voice Control** — Voice/text commands to control 3D avatar via SecondBrain AI
+- **Avatar Voice Control** — Voice/text commands to control 3D avatar via SecondBrain AI (coming soon)
 - **Camera & Video Input** — Live camera streams or video file upload
 - **Real-time Log Streaming** — Backend logs streamed live to the frontend
 - **Auto-Deployment** — GitHub Actions CI/CD to production and staging
@@ -61,7 +61,7 @@ Open `http://localhost:8585` in your browser.
    - 3D view supports orbit controls (rotate, pan, zoom) and toggle between Avatar and Skeleton rendering
    - 3D Pose supports model switching between MediaPipe and YOLO+RTMPose
 5. **View logs** in the right sidebar panel for real-time backend diagnostics
-6. **Avatar Voice Control** — select from function menu, type or speak commands like "wave your right hand"
+6. **Avatar Voice Control** — coming soon (hidden easter egg: click 15 times to unlock)
 
 ## Architecture
 

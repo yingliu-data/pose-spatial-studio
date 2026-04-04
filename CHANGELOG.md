@@ -4,6 +4,17 @@ All notable changes to the Pose Spatial Studio project will be documented in thi
 
 The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.0.0/).
 
+## [1.4.2] - 4 April 2026
+
+### Changed
+- Avatar Voice Control hidden behind "Coming Soon" placeholder with 15-click easter egg to unlock
+- Added `hidden` flag to FunctionDefinition type for hiding unreleased features
+
+### Infrastructure
+- Added supervisord process supervisor to backend Docker container for automatic app restart on crash
+- Backend container image committed with supervisord entrypoint (`/root/entrypoint.sh`)
+- Container restart policy set to `unless-stopped`
+
 ## [1.4.1] - 3 April 2026
 
 ### Added

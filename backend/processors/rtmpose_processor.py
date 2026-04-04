@@ -47,6 +47,7 @@ COCO133_TO_OUTPUT_JOINTS = {
 _Z_RANGE = 2.1744869      # dataset statistic: max root-relative depth in meters
 _Z_INPUT_HALF = 144.0     # codec input_size[2] / 2 = 288 / 2 (z dimension)
 _TORSO_LEG_HEIGHT = 1.35  # approximate shoulder-to-ankle height in meters
+_MEDIAPIPE_BODY_SCALE = 0.85  # typical MediaPipe neck-to-ankle span in world units
 
 
 class RTMPoseProcessor(BaseProcessor):
@@ -219,6 +220,14 @@ class RTMPoseProcessor(BaseProcessor):
                     "visibility": float(np.mean([person_scores[i] for i in valid])),
                     "presence": float(np.mean([person_scores[i] for i in valid])),
                 }
+
+            scale = 0.25
+            for jd in landmark_dict.values():
+                if isinstance(jd, dict) and 'x' in jd:
+                    jd['x'] *= scale
+                    jd['y'] *= scale
+                    jd['z'] *= scale
+
             result.append(landmark_dict)
         return result
 

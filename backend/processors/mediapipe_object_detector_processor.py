@@ -20,18 +20,18 @@ import config
 
 logger = logging.getLogger(__name__)
 
-# Color palette for different object categories (BGR)
+# Color palette for different object categories (BGR) — dark tones for readability
 _CATEGORY_COLORS = [
-    (0, 255, 0),    # green
-    (255, 0, 0),    # blue
-    (0, 0, 255),    # red
-    (255, 255, 0),  # cyan
-    (0, 255, 255),  # yellow
-    (255, 0, 255),  # magenta
-    (128, 255, 0),  # spring green
-    (255, 128, 0),  # sky blue
-    (0, 128, 255),  # orange
-    (128, 0, 255),  # violet
+    (0, 160, 0),    # dark green
+    (200, 0, 0),    # dark blue
+    (0, 0, 200),    # dark red
+    (160, 120, 0),  # dark teal
+    (0, 120, 180),  # dark orange
+    (160, 0, 160),  # dark magenta
+    (60, 140, 0),   # dark spring green
+    (180, 80, 0),   # dark sky blue
+    (0, 80, 180),   # dark amber
+    (120, 0, 180),  # dark violet
 ]
 
 

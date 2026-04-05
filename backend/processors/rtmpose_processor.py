@@ -1,5 +1,5 @@
 import cv2
-from rtmlib import Wholebody3d, draw_skeleton
+from rtmlib import PoseTracker, Wholebody3d, draw_skeleton
 from typing import Optional, List, Dict, Any
 from processors.base_processor import BaseProcessor
 from utils.kinetic import Converter
@@ -58,13 +58,17 @@ class RTMPoseProcessor(BaseProcessor):
 
     def initialize(self) -> bool:
         self._is_initialized = True
-        self.wholebody = Wholebody3d(
+        self.pose_tracker = PoseTracker(
+            Wholebody3d,
+            det_frequency=7,
+            tracking=False,
             mode='balanced',
             to_openpose=False,
             backend=self.backend,
             device=self.device
         )
         self._z_root_filter = MedianFilter(window_size=5)
+        self._root_positions = []
         logger.info(f"RTMpose 3D processor {self.processor_id} initialized")
         return True
 
@@ -76,14 +80,13 @@ class RTMPoseProcessor(BaseProcessor):
             return None
 
         frame = np.ascontiguousarray(frame)
-        keypoints_3d, scores, keypoints_simcc, keypoints_2d = self.wholebody(frame)
+        keypoints_3d, scores, keypoints_simcc, keypoints_2d = self.pose_tracker(frame)
 
-        # Fix rtmlib z-depth bug: rtmlib decodes z using image height (384/2=192)
-        # but the model codec uses z_input_size (288/2=144). Re-decode from raw
-        # simcc pixel values to get correct root-relative depth in meters.
+        # Fix z-depth: rtmlib decodes z using image height (384/2=192) instead of
+        # the codec z input size (288/2=144). Re-decode z from raw simcc values.
+        # x,y are kept from keypoints_2d (stable image-space pixels) in _build_world_landmarks.
         if keypoints_3d is not None and len(keypoints_3d) > 0:
-            z_pixel = keypoints_simcc[..., 2]
-            keypoints_3d[..., 2] = (z_pixel / _Z_INPUT_HALF - 1.0) * _Z_RANGE
+            keypoints_3d[..., 2] = (keypoints_simcc[..., 2] / _Z_INPUT_HALF - 1.0) * _Z_RANGE
 
         annotated_frame = draw_skeleton(frame, keypoints_2d, scores, kpt_thr=0.5)
         annotated_frame = cv2.resize(annotated_frame, (640, 480))
@@ -110,14 +113,13 @@ class RTMPoseProcessor(BaseProcessor):
         fk_data = self._fk_processing(world_landmarks)
 
         root_position = None
-        if world_landmarks:
-            hip_data = world_landmarks[0].get("hipCentre", {})
-            if hip_data:
-                root_position = {
-                    "x": float(hip_data.get("x", 0)),
-                    "y": float(-hip_data.get("y", 0)),
-                    "z": float(-hip_data.get("z", 0))
-                }
+        if self._root_positions:
+            rp = self._root_positions[0]
+            root_position = {
+                "x": float(rp["x"]),
+                "y": float(-rp["y"]),
+                "z": float(-rp["z"])
+            }
 
         return {
             "processed_frame": annotated_frame,
@@ -160,21 +162,23 @@ class RTMPoseProcessor(BaseProcessor):
                                 keypoints_2d: np.ndarray,
                                 scores: np.ndarray,
                                 w: int, h: int) -> List[Dict]:
-        """Build 3D world landmarks combining 2D image-space x,y with 3D z.
+        """Build 3D world landmarks using 2D keypoints for x,y and simcc z for depth.
 
-        Uses keypoints_2d (inverse-affine-transformed to image space by rtmlib)
-        for x,y with per-joint depth-corrected perspective unprojection.
-        Each joint's absolute depth (z_root + z_relative) is used instead of
-        a constant z_root, producing consistent 3D positions for accurate
-        FK bone direction computation. z comes from keypoints_3d (already
-        corrected for rtmlib's codec mismatch).
+        x,y: from keypoints_2d (stable image-space pixels) with perspective
+             unprojection using a shared z_root for all joints — skeleton
+             proportions come from stable 2D pixel ratios.
+        z:   from keypoints_3d (corrected simcc z) — root-relative depth.
+        Root position computed separately for scene placement.
         """
-        f_est = float(max(w, h))  # estimated focal length (~53° VFOV)
+        f_est = float(max(w, h))
+        self._root_positions = []
 
         result = []
         for person_3d, person_2d, person_scores in zip(
                 keypoints_3d, keypoints_2d, scores):
-            # Estimate root depth from visible body extent (indices 5-16)
+            hip_indices = [11, 12]
+
+            # Estimate z_root from visible body extent (smoothed)
             visible_ys = [person_2d[i][1] for i in range(5, 17)
                           if i < len(person_2d) and person_scores[i] > 0.3]
             if len(visible_ys) >= 2:
@@ -182,16 +186,24 @@ class RTMPoseProcessor(BaseProcessor):
                 z_root = _TORSO_LEG_HEIGHT * f_est / max(body_height_px, 50.0)
             else:
                 z_root = 3.0
-
-            # Smooth z_root across frames to reduce scale jitter
             z_root = float(self._z_root_filter.filter(np.array([z_root]))[0])
 
-            # Person center in image space (average of hip keypoints)
-            hip_indices = [11, 12]
+            # Hip center in image space
             valid_hips = [i for i in hip_indices if i < len(person_2d)]
             cx = float(np.mean([person_2d[i][0] for i in valid_hips]))
             cy = float(np.mean([person_2d[i][1] for i in valid_hips]))
 
+            # Root position for scene placement
+            self._root_positions.append({
+                "x": (cx - w / 2) * z_root / f_est,
+                "y": (cy - h / 2) * z_root / f_est,
+                "z": z_root
+            })
+
+            # Hip center z from corrected simcc (for root-relative depth)
+            hip_3d_z = float(np.mean([person_3d[i][2] for i in hip_indices]))
+
+            # Build landmarks: x,y from 2D pixels (shared z_root), z from simcc
             landmark_dict = {}
             for joint_name, indices in COCO133_TO_OUTPUT_JOINTS.items():
                 valid = [i for i in indices if i < len(person_2d)]
@@ -202,23 +214,16 @@ class RTMPoseProcessor(BaseProcessor):
                     }
                     continue
 
-                # Per-joint depth-corrected perspective unprojection:
-                # use each joint's absolute depth instead of constant z_root
-                xs, ys, zs = [], [], []
-                for i in valid:
-                    z_rel = person_3d[i][2]
-                    z_abs = max(z_root + z_rel, 0.5)
-                    xs.append((person_2d[i][0] - cx) * z_abs / f_est)
-                    ys.append((person_2d[i][1] - cy) * z_abs / f_est)
-                    zs.append(z_rel)
-
+                # x,y: perspective unprojection with shared z_root (stable proportions)
+                # z: root-relative depth from corrected simcc
                 landmark_dict[joint_name] = {
-                    "x": float(np.mean(xs)),
-                    "y": float(np.mean(ys)),
-                    "z": float(np.mean(zs)),
+                    "x": float(np.mean([(person_2d[i][0] - cx) * z_root / f_est for i in valid])),
+                    "y": float(np.mean([(person_2d[i][1] - cy) * z_root / f_est for i in valid])),
+                    "z": float(np.mean([person_3d[i][2] - hip_3d_z for i in valid])),
                     "visibility": float(np.mean([person_scores[i] for i in valid])),
                     "presence": float(np.mean([person_scores[i] for i in valid])),
                 }
+
             result.append(landmark_dict)
         return result
 

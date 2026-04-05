@@ -3,7 +3,7 @@
 Uses MediaPipe GestureRecognizer for combined hand landmark detection
 and gesture classification. Draws hand bounding boxes, 21-point hand
 skeleton with connections, and gesture/handedness labels on the frame.
-Supports LIVE_STREAM (camera) and VIDEO (file) running modes.
+Uses synchronous VIDEO running mode to avoid LIVE_STREAM segfaults.
 """
 
 import cv2
@@ -11,7 +11,6 @@ import mediapipe as mp
 import numpy as np
 from typing import Dict, Any, Optional
 import logging
-import threading
 import subprocess
 import os
 
@@ -44,10 +43,10 @@ HAND_CONNECTIONS = frozenset([
 ])
 
 # Colors (BGR)
-_LEFT_HAND_COLOR = (255, 255, 0)   # cyan
-_RIGHT_HAND_COLOR = (255, 0, 255)  # magenta
-_JOINT_COLOR = (0, 255, 0)         # green
-_BONE_COLOR = (255, 128, 0)        # light blue
+_LEFT_HAND_COLOR = (180, 120, 0)   # dark teal
+_RIGHT_HAND_COLOR = (140, 0, 140)  # dark magenta
+_JOINT_COLOR = (0, 180, 0)         # dark green
+_BONE_COLOR = (160, 80, 0)         # dark blue
 
 
 class MediaPipeHandGestureProcessor(BaseProcessor):
@@ -67,17 +66,8 @@ class MediaPipeHandGestureProcessor(BaseProcessor):
             'min_tracking_confidence', 0.5)
         self.num_hands = int(pose_cfg.get('num_hands', 2))
         self.device = pose_cfg.get('device', 'cpu')
-        self.source_type = pose_cfg.get('source_type', 'camera')
         self.gesture_recognizer = None
         self.last_timestamp = 0
-
-        if self.source_type == 'camera':
-            self.result_lock = threading.Lock()
-            self.latest_gesture_result = None
-
-    def _gesture_result_callback(self, result, output_image, timestamp_ms):
-        with self.result_lock:
-            self.latest_gesture_result = result
 
     def _get_delegate(self):
         if self.device == 'cuda':
@@ -96,9 +86,7 @@ class MediaPipeHandGestureProcessor(BaseProcessor):
                 ["wget", "-O", self.model_path, _GESTURE_MODEL_URL],
                 check=True)
 
-        use_live = self.source_type == 'camera'
-        running_mode = (mp.tasks.vision.RunningMode.LIVE_STREAM if use_live
-                        else mp.tasks.vision.RunningMode.VIDEO)
+        running_mode = mp.tasks.vision.RunningMode.VIDEO
         logger.info(f"HandGesture running mode: {running_mode.name}")
 
         gr_kwargs = dict(
@@ -111,8 +99,6 @@ class MediaPipeHandGestureProcessor(BaseProcessor):
             min_hand_presence_confidence=self.min_detection_confidence,
             min_tracking_confidence=self.min_tracking_confidence,
         )
-        if use_live:
-            gr_kwargs['result_callback'] = self._gesture_result_callback
         self.gesture_recognizer = (
             mp.tasks.vision.GestureRecognizer.create_from_options(
                 mp.tasks.vision.GestureRecognizerOptions(**gr_kwargs)))
@@ -145,9 +131,6 @@ class MediaPipeHandGestureProcessor(BaseProcessor):
         if self.gesture_recognizer:
             self.gesture_recognizer.close()
             self.gesture_recognizer = None
-        if self.source_type == 'camera':
-            with self.result_lock:
-                self.latest_gesture_result = None
         self._is_initialized = False
         logger.info(
             f"HandGesture processor {self.processor_id} cleaned up")
@@ -180,15 +163,9 @@ class MediaPipeHandGestureProcessor(BaseProcessor):
             image_format=mp.ImageFormat.SRGB,
             data=annotated.copy())
 
-        # Run gesture recognition
-        if self.source_type == 'camera':
-            self.gesture_recognizer.recognize_async(mp_image, timestamp_ms)
-            with self.result_lock:
-                gesture_result = self.latest_gesture_result
-        else:
-            gesture_result = (
-                self.gesture_recognizer.recognize_for_video(
-                    mp_image, timestamp_ms))
+        # Run gesture recognition (synchronous VIDEO mode)
+        gesture_result = self.gesture_recognizer.recognize_for_video(
+            mp_image, timestamp_ms)
 
         hands = []
         if (gesture_result and gesture_result.hand_landmarks

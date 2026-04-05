@@ -38,7 +38,7 @@ export function View2D({ socket }: View2DProps) {
   }, [isStreamActive]);
 
   return (
-    <div className="view-container" style={{ position: 'relative', width: '100%', height: '100%', minHeight: 400 }}>
+    <div className="view-container" style={{ position: 'relative', width: '100%', aspectRatio: '4 / 3', margin: '0 auto' }}>
       {isStreamActive && <CameraCapture socket={socket} />}
 
       {!isStreamActive && !backendResult ? (
@@ -61,7 +61,6 @@ export function View2D({ socket }: View2DProps) {
           style={{
             width: '100%',
             height: '100%',
-            objectFit: 'contain',
             display: 'block',
             backgroundColor: '#000',
             borderRadius: 16,

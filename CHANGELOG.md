@@ -1,8 +1,17 @@
 # Changelog
 
-All notable changes to the Pose Spatial Studio project will be documented in this file.
+All notable changes to the Computer Vision Demo project will be documented in this file.
 
 The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.0.0/).
+
+## [1.4.3] - 9 April 2026
+
+### Fixed
+- Graceful processor shutdown: `cleanup_processor` now waits for in-flight thread pool work to finish before destroying processor objects, preventing native GPU segfaults during rapid function switching
+- Race condition in `switch_model`: block new frames with `_shutting_down` guard during drain-and-swap to prevent stale processor access
+- Frontend function switching now awaits backend cleanup acknowledgment (`cleanup_complete` event) before proceeding, with 3s timeout fallback
+- Added `beforeunload` handler to emit `cleanup_processor` on page refresh so backend cleans up gracefully
+- Rapid function click debounce prevents overlapping cleanup/init cycles
 
 ## [1.4.2] - 4 April 2026
 

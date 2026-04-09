@@ -33,6 +33,7 @@ export function Controls({ connected, socket }: ControlsProps) {
 
   const comingSoonClicks = useRef(0);
   const comingSoonTimer = useRef<ReturnType<typeof setTimeout>>(undefined);
+  const switchingRef = useRef(false);
 
   const needsCamera = functionDef?.processorType !== null;
 
@@ -43,14 +44,33 @@ export function Controls({ connected, socket }: ControlsProps) {
     }
   }, [activeFunction]);
 
-  const handleFunctionSelect = (fnId: string) => {
-    // If switching away from active stream, clean up
-    if (isStreamActive && socket) {
-      socket.emit('cleanup_processor', { stream_id: ACTIVE_STREAM_ID });
-      setStreamActive(false);
-      setBackendResult(null);
+  const handleFunctionSelect = async (fnId: string) => {
+    if (switchingRef.current) return;
+    switchingRef.current = true;
+    try {
+      // If switching away from active stream, wait for backend cleanup
+      if (isStreamActive && socket) {
+        await new Promise<void>((resolve) => {
+          const onComplete = (data: { stream_id: string }) => {
+            if (data.stream_id === ACTIVE_STREAM_ID) {
+              socket.off('cleanup_complete', onComplete);
+              resolve();
+            }
+          };
+          socket.on('cleanup_complete', onComplete);
+          socket.emit('cleanup_processor', { stream_id: ACTIVE_STREAM_ID });
+          setTimeout(() => {
+            socket.off('cleanup_complete', onComplete);
+            resolve();
+          }, 3000);
+        });
+        setStreamActive(false);
+        setBackendResult(null);
+      }
+      selectFunction(fnId as any);
+    } finally {
+      switchingRef.current = false;
     }
-    selectFunction(fnId as any);
   };
 
   const handleStart = async () => {

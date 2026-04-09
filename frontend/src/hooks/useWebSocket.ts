@@ -22,41 +22,67 @@ export function useWebSocket(): UseWebSocketReturn {
   const flushActiveStream = () => {
     socket?.emit('flush_stream', { stream_id: ACTIVE_STREAM_ID });
     useAppStore.getState().setBackendResult(null);
-    lastUpdateTime.current = 0;
+    lastUpdateTime.current = Date.now();
   };
 
   useEffect(() => {
-    const socketInstance = socketService.connect();
-    setSocket(socketInstance);
+    let cancelled = false;
 
-    socketInstance.on('connect', () => {
-      console.log('[WS] Connected, sid:', socketInstance.id);
-      setConnected(true);
-    });
-    socketInstance.on('disconnect', (reason) => {
-      console.warn('[WS] Disconnected, reason:', reason);
-      setConnected(false);
-    });
+    const init = async () => {
+      await socketService.resolveUrl();
+      if (cancelled) return;
 
-    socketInstance.on('pose_result', (result: BackendResult) => {
-      try {
-        const age = Date.now() - result.timestamp_ms;
-        if (age > RESULT_TIMEOUT_MS) return;
+      const socketInstance = socketService.connect();
+      setSocket(socketInstance);
 
-        if (result.timestamp_ms >= lastUpdateTime.current) {
-          lastUpdateTime.current = result.timestamp_ms;
-          setBackendResult(result);
+      socketInstance.on('connect', () => {
+        console.log('[WS] Connected, sid:', socketInstance.id);
+        setConnected(true);
+      });
+      socketInstance.on('disconnect', (reason) => {
+        console.warn('[WS] Disconnected, reason:', reason);
+        setConnected(false);
+      });
+
+      socketInstance.on('pose_result', (result: BackendResult) => {
+        try {
+          if (!useAppStore.getState().isStreamActive) return;
+
+          const age = Date.now() - result.timestamp_ms;
+          if (age > RESULT_TIMEOUT_MS) return;
+
+          if (result.timestamp_ms >= lastUpdateTime.current) {
+            lastUpdateTime.current = result.timestamp_ms;
+            setBackendResult(result);
+          }
+        } catch (err) {
+          console.error('[WS] Error in pose_result handler:', err);
         }
-      } catch (err) {
-        console.error('[WS] Error in pose_result handler:', err);
+      });
+
+      socketInstance.on('error', (error) =>
+        console.error('[WS] Socket error:', error),
+      );
+
+      const handleBeforeUnload = () => {
+        if (socketInstance.connected) {
+          socketInstance.emit('cleanup_processor', { stream_id: ACTIVE_STREAM_ID });
+        }
+      };
+      window.addEventListener('beforeunload', handleBeforeUnload);
+      cleanupBeforeUnload = handleBeforeUnload;
+    };
+
+    let cleanupBeforeUnload: (() => void) | null = null;
+    init();
+
+    return () => {
+      cancelled = true;
+      if (cleanupBeforeUnload) {
+        window.removeEventListener('beforeunload', cleanupBeforeUnload);
       }
-    });
-
-    socketInstance.on('error', (error) =>
-      console.error('[WS] Socket error:', error),
-    );
-
-    return () => socketService.disconnect();
+      socketService.disconnect();
+    };
   }, [setBackendResult]);
 
   return { socket, connected, flushActiveStream };

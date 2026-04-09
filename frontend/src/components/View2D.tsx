@@ -53,7 +53,7 @@ export function View2D({ socket }: View2DProps) {
           color: 'rgba(255,255,255,0.4)',
           fontSize: 14,
         }}>
-          Waiting for camera...
+          Choose a Streaming Source on the left panel (A Camera or a Video File)
         </div>
       ) : (
         <canvas

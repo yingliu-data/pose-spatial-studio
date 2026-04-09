@@ -1,6 +1,6 @@
 # E2E Tests (Playwright)
 
-Automated UI tests for the Pose Spatial Studio application.
+Automated UI tests for the Computer Vision Demo application.
 
 ## Structure
 

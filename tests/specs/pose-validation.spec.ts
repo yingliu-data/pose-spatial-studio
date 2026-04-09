@@ -2,7 +2,7 @@ import { test, expect } from '@playwright/test';
 import path from 'path';
 
 /**
- * Pose Spatial Studio - Automated UI Testing
+ * Computer Vision Demo - Automated UI Testing
  *
  * Validates the stream creation UI, pose detection, and 3D rendering.
  * Selectors are aligned with frontend/src/components/Controls.tsx.
@@ -18,7 +18,7 @@ test.describe('Pose Capture and Avatar Validation', () => {
   });
 
   test('should load the application with correct title', async ({ page }) => {
-    await expect(page).toHaveTitle(/Pose Spatial Studio/i);
+    await expect(page).toHaveTitle(/Computer Vision Demo/i);
   });
 
   test('should show connection status', async ({ page }) => {

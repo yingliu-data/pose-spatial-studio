@@ -55,7 +55,7 @@ function App() {
       </div>
 
       <header className="app-header">
-        <h1>Pose Spatial Studio</h1>
+        <h1>Computer Vision Demo</h1>
         <div className="connection-status">
           <span className={`status-indicator ${connected ? 'connected' : 'disconnected'}`} />
           <span>{connected ? 'Connected' : 'Disconnected'}</span>

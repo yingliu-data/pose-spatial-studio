@@ -15,7 +15,7 @@ test.describe('Avatar Voice Control', () => {
   });
 
   test('should load app and show connected status', async ({ page }) => {
-    await expect(page).toHaveTitle(/Pose Spatial Studio/i);
+    await expect(page).toHaveTitle(/Computer Vision Demo/i);
     await expect(page.locator('.connection-status')).toBeVisible();
     await expect(page.locator('text=Connected').first()).toBeVisible({ timeout: 15_000 });
   });

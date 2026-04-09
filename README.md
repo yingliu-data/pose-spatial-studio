@@ -1,4 +1,4 @@
-# Pose Spatial Studio
+# Computer Vision Demo
 
 Real-time pose estimation, object detection, and 3D avatar rendering with WebSocket streaming.
 

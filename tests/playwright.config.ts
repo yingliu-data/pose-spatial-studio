@@ -1,7 +1,7 @@
 import { defineConfig, devices } from '@playwright/test';
 
 /**
- * Playwright configuration for Pose Spatial Studio
+ * Playwright configuration for Computer Vision Demo
  * See https://playwright.dev/docs/test-configuration
  */
 export default defineConfig({

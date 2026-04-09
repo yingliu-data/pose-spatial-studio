@@ -34,6 +34,8 @@ class WebSocketHandler:
         self._stream_metrics: Dict[str, Dict[str, Any]] = {}
         self._last_stats_log: float = 0
         self._log_handlers: Dict[str, SocketIOLogHandler] = {}  # sid -> handler
+        self._processor_done: Dict[str, asyncio.Event] = {}  # processor_id -> Event (set when thread pool finishes)
+        self._shutting_down: set = set()  # processor_ids currently being cleaned up
         logger.info(f"Thread pool initialized with {POSE_WORKERS} workers")
         self.setup_handlers()
     
@@ -52,7 +54,7 @@ class WebSocketHandler:
             processors_to_cleanup = [pid for pid in self.processors.keys() if pid.startswith(f"{sid}_")]
             logger.debug(f"[DISC] Found {len(processors_to_cleanup)} processors to cleanup: {processors_to_cleanup}")
             for processor_id in processors_to_cleanup:
-                self.cleanup_processor(processor_id)
+                await self.cleanup_processor(processor_id)
 
             # Clean up log handler if subscribed
             handler = self._log_handlers.pop(sid, None)
@@ -183,11 +185,8 @@ class WebSocketHandler:
                 timestamp = data.get('timestamp_ms', 0)
                 logger.debug(f"[FRAME] Received frame for {stream_id} t={timestamp}")
 
-                if processor_id not in self.processors:
-                    logger.warning(f"[ERROR] Processor {processor_id} not found")
-                    await self.sio.emit('error', {
-                        'message': 'Stream not initialized. Call initialize_stream first.'
-                    }, room=sid)
+                if processor_id not in self.processors or processor_id in self._shutting_down:
+                    logger.warning(f"[FRAME] Processor {processor_id} not found or shutting down")
                     return
 
                 frame = self._decode_frame(data.get('frame'))
@@ -213,7 +212,8 @@ class WebSocketHandler:
         async def cleanup_processor(sid, data):
             stream_id = data.get('stream_id')
             processor_id = f"{sid}_{stream_id}"
-            self.cleanup_processor(processor_id)
+            await self.cleanup_processor(processor_id)
+            await self.sio.emit('cleanup_complete', {'stream_id': stream_id}, room=sid)
         
         @self.sio.event
         async def switch_model(sid, data):
@@ -307,8 +307,8 @@ class WebSocketHandler:
                     }, room=sid)
                     return
 
-                # Drain pending frames and wait for in-flight processing to finish
-                # before swapping, to avoid using a cleaned-up processor
+                # Block new frames, drain pending, and wait for in-flight processing
+                self._shutting_down.add(processor_id)
                 self._latest_frames.pop(processor_id, None)
                 while processor_id in self._active_streams:
                     await asyncio.sleep(0.01)
@@ -317,6 +317,7 @@ class WebSocketHandler:
                 if current_pose:
                     current_pose.cleanup()
                 pipeline['pose_processor'] = new_pose
+                self._shutting_down.discard(processor_id)
 
                 logger.info(f"[SWITCH] Stream {stream_id} switched to {new_processor_type}")
 
@@ -408,8 +409,13 @@ class WebSocketHandler:
 
     async def _process_latest_frame(self, processor_id: str):
         """Process the latest frame for a stream, then check for newer ones."""
+        done_event = asyncio.Event()
+        self._processor_done[processor_id] = done_event
         try:
             while processor_id in self._latest_frames:
+                if processor_id in self._shutting_down:
+                    break
+
                 # Grab the latest frame and clear the buffer
                 frame, timestamp, sid, stream_id = self._latest_frames.pop(processor_id)
 
@@ -456,9 +462,13 @@ class WebSocketHandler:
             logger.error(f"Error in _process_latest_frame: {e}", exc_info=True)
         finally:
             self._active_streams.discard(processor_id)
+            done_event.set()
 
     def _run_pipeline_sync(self, processor_pipeline, frame, timestamp, processor_id=None):
         """Run the processor pipeline synchronously. Called from thread pool."""
+        if processor_id and processor_id in self._shutting_down:
+            return frame, None
+
         t0 = time.perf_counter()
         pose_data = None
         processed_frame = frame
@@ -510,8 +520,24 @@ class WebSocketHandler:
             logger.error(f"Error decoding frame: {e}")
             return None
     
-    def cleanup_processor(self, processor_id: str):
+    async def cleanup_processor(self, processor_id: str):
+        if processor_id in self._shutting_down:
+            return  # already being cleaned up
+        self._shutting_down.add(processor_id)
+
+        # Stop new frames from being queued
         self._latest_frames.pop(processor_id, None)
+
+        # Wait for in-flight thread pool work to finish
+        if processor_id in self._active_streams:
+            done_event = self._processor_done.get(processor_id)
+            if done_event:
+                try:
+                    await asyncio.wait_for(done_event.wait(), timeout=5.0)
+                except asyncio.TimeoutError:
+                    logger.warning(f"[CLEANUP] Timed out waiting for {processor_id} to drain")
+
+        # Now safe to destroy processor objects
         self._active_streams.discard(processor_id)
         self._stream_metrics.pop(processor_id, None)
         if processor_id in self.processors:
@@ -523,14 +549,17 @@ class WebSocketHandler:
             logger.debug(f"[CLEANUP] Remaining processors: {list(self.processors.keys())}")
         else:
             logger.debug(f"[CLEANUP] Processor {processor_id} not found (already cleaned up?)")
+
+        self._processor_done.pop(processor_id, None)
+        self._shutting_down.discard(processor_id)
     
-    def cleanup_all(self):
+    async def cleanup_all(self):
         for _, handler in list(self._log_handlers.items()):
             logging.getLogger().removeHandler(handler)
             handler.close()
         self._log_handlers.clear()
         for processor_id in list(self.processors.keys()):
-            self.cleanup_processor(processor_id)
+            await self.cleanup_processor(processor_id)
         self._executor.shutdown(wait=False)
     
     def get_stats(self) -> Dict[str, Any]:

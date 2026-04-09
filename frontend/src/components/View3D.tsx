@@ -87,7 +87,12 @@ export function View3D({ socket }: View3DProps) {
           color: 'rgba(255,255,255,0.4)',
           fontSize: 14,
         }}>
-          Choose a Streaming Source on the left panel (A Camera or a Video File)
+          <div style={{ textAlign: 'center', lineHeight: 1.8 }}>
+            <div style={{ fontSize: 15, color: 'rgba(255,255,255,0.6)', marginBottom: 8 }}>3D Pose Estimation</div>
+            <div>1. Select a camera or video file in the left panel, then press Start</div>
+            <div>2. Use the model selector at the top-left to switch between MediaPipe and YOLO+RTMPose</div>
+            <div>3. Toggle Avatar / Skeleton view at the top-left</div>
+          </div>
         </div>
       )}
 

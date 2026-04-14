@@ -23,6 +23,8 @@ export interface FunctionDefinition {
   processorType: ProcessorType | null;
   modelLabel: string;
   hidden?: boolean;
+  previewVideo?: string;
+  previewPoseData?: string;
 }
 
 export const FUNCTION_DEFINITIONS: FunctionDefinition[] = [
@@ -34,6 +36,7 @@ export const FUNCTION_DEFINITIONS: FunctionDefinition[] = [
     viewMode: '2d',
     processorType: 'yolo_pose_2d',
     modelLabel: 'YOLO',
+    previewVideo: '/previews/pose_2d_preview.mp4',
   },
   {
     id: 'pose_3d',
@@ -43,6 +46,8 @@ export const FUNCTION_DEFINITIONS: FunctionDefinition[] = [
     viewMode: '3d',
     processorType: 'mediapipe',
     modelLabel: 'MediaPipe',
+    previewVideo: '/previews/pose_3d_preview.mp4',
+    previewPoseData: '/previews/pose_3d_preview_poses.json',
   },
   {
     id: 'object_detection',
@@ -52,6 +57,7 @@ export const FUNCTION_DEFINITIONS: FunctionDefinition[] = [
     viewMode: '2d',
     processorType: 'mediapipe_object_detection',
     modelLabel: 'MediaPipe',
+    previewVideo: '/previews/object_detection_preview.mp4',
   },
   {
     id: 'hand_gesture',
@@ -61,6 +67,7 @@ export const FUNCTION_DEFINITIONS: FunctionDefinition[] = [
     viewMode: '2d',
     processorType: 'mediapipe_hand_gesture',
     modelLabel: 'MediaPipe',
+    previewVideo: '/previews/hand_gesture_preview.mp4',
   },
   {
     id: 'robotic_control',

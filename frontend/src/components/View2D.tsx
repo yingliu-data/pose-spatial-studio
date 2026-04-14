@@ -1,6 +1,7 @@
 import { useRef, useEffect } from 'react';
 import { Socket } from 'socket.io-client';
 import { CameraCapture } from '@/components/CameraCapture';
+import { PreviewPlayer } from '@/components/PreviewPlayer';
 import { useAppStore } from '@/stores/appStore';
 
 interface View2DProps {
@@ -42,19 +43,26 @@ export function View2D({ socket }: View2DProps) {
       {isStreamActive && <CameraCapture socket={socket} />}
 
       {!isStreamActive && !backendResult ? (
-        <div style={{
-          width: '100%',
-          height: '100%',
-          display: 'flex',
-          alignItems: 'center',
-          justifyContent: 'center',
-          backgroundColor: '#000',
-          borderRadius: 16,
-          color: 'rgba(255,255,255,0.4)',
-          fontSize: 14,
-        }}>
-          Choose a Streaming Source on the left panel (A Camera or a Video File)
-        </div>
+        functionDef?.previewVideo ? (
+          <PreviewPlayer
+            src={functionDef.previewVideo}
+            style={{ width: '100%', height: '100%', borderRadius: 16 }}
+          />
+        ) : (
+          <div style={{
+            width: '100%',
+            height: '100%',
+            display: 'flex',
+            alignItems: 'center',
+            justifyContent: 'center',
+            backgroundColor: '#000',
+            borderRadius: 16,
+            color: 'rgba(255,255,255,0.4)',
+            fontSize: 14,
+          }}>
+            Choose a Streaming Source on the left panel (A Camera or a Video File)
+          </div>
+        )
       ) : (
         <canvas
           ref={displayCanvasRef}
@@ -84,30 +92,32 @@ export function View2D({ socket }: View2DProps) {
         {functionDef?.label}
       </div>
 
-      {/* Status indicator */}
-      <div style={{
-        position: 'absolute',
-        bottom: 12,
-        right: 14,
-        display: 'flex',
-        alignItems: 'center',
-        gap: 6,
-        fontSize: 11,
-        color: 'rgba(255,255,255,0.6)',
-        background: 'rgba(0,0,0,0.5)',
-        padding: '4px 10px',
-        borderRadius: 8,
-        backdropFilter: 'blur(8px)',
-      }}>
+      {/* Status indicator — only show when streaming */}
+      {isStreamActive && (
         <div style={{
-          width: 8,
-          height: 8,
-          borderRadius: '50%',
-          backgroundColor: backendResult ? '#30d158' : '#ff9f0a',
-          animation: 'pulse 2s infinite',
-        }} />
-        {backendResult ? 'LIVE' : 'Starting...'}
-      </div>
+          position: 'absolute',
+          bottom: 12,
+          right: 14,
+          display: 'flex',
+          alignItems: 'center',
+          gap: 6,
+          fontSize: 11,
+          color: 'rgba(255,255,255,0.6)',
+          background: 'rgba(0,0,0,0.5)',
+          padding: '4px 10px',
+          borderRadius: 8,
+          backdropFilter: 'blur(8px)',
+        }}>
+          <div style={{
+            width: 8,
+            height: 8,
+            borderRadius: '50%',
+            backgroundColor: backendResult ? '#30d158' : '#ff9f0a',
+            animation: 'pulse 2s infinite',
+          }} />
+          {backendResult ? 'LIVE' : 'Starting...'}
+        </div>
+      )}
     </div>
   );
 }

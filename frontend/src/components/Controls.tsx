@@ -1,4 +1,4 @@
-import { useEffect, useRef } from 'react';
+import { useRef } from 'react';
 import { Socket } from 'socket.io-client';
 import { useCameraDevices } from '@/hooks/useCameraDevices';
 import { StreamInitService } from '@/services/streamInitService';
@@ -37,13 +37,6 @@ export function Controls({ connected, socket }: ControlsProps) {
 
   const needsCamera = functionDef?.processorType !== null;
 
-  // Request camera permission when a camera-based function is first selected
-  useEffect(() => {
-    if (activeFunction && needsCamera && sourceType === 'camera') {
-      requestPermission();
-    }
-  }, [activeFunction]);
-
   const handleFunctionSelect = async (fnId: string) => {
     if (switchingRef.current) return;
     switchingRef.current = true;
@@ -78,6 +71,14 @@ export function Controls({ connected, socket }: ControlsProps) {
     if (sourceType === 'video' && !videoFile) return;
 
     if (sourceType === 'camera' && !deviceId) return;
+
+    if (sourceType === 'camera') {
+      const granted = await requestPermission();
+      if (!granted) {
+        alert('Camera permission is required to start streaming.');
+        return;
+      }
+    }
 
     setInitializing(true, 'Initializing...');
 
@@ -178,10 +179,12 @@ export function Controls({ connected, socket }: ControlsProps) {
             <label>Source Type</label>
             <select
               value={sourceType}
-              onChange={(e) => {
+              onChange={async (e) => {
                 const newSource = e.target.value as 'camera' | 'video';
                 setSourceConfig(newSource, '', '', null);
-                if (newSource === 'camera') requestPermission();
+                if (newSource === 'camera') {
+                  await requestPermission();
+                }
               }}
               disabled={isStreamActive}
             >

@@ -1,6 +1,7 @@
 import { useState, useCallback, useEffect } from 'react';
 import { Socket } from 'socket.io-client';
 import { CameraCapture } from '@/components/CameraCapture';
+import { Preview3DPlayer } from '@/components/Preview3DPlayer';
 import { Skeleton3DViewer } from '@/components/Skeleton3DViewer';
 import { StreamInitService } from '@/services/streamInitService';
 import { useAppStore } from '@/stores/appStore';
@@ -21,7 +22,7 @@ interface View3DProps {
 export function View3D({ socket }: View3DProps) {
   const [videoElement, setVideoElement] = useState<HTMLVideoElement | null>(null);
   const [processedCanvas, setProcessedCanvas] = useState<HTMLCanvasElement | null>(null);
-  const { backendResult, isStreamActive, rendererType, toggleRendererType, pose3dProcessorType, setPose3dProcessorType } = useAppStore();
+  const { backendResult, isStreamActive, functionDef, rendererType, toggleRendererType, pose3dProcessorType, setPose3dProcessorType } = useAppStore();
   const [isSwitching, setIsSwitching] = useState(false);
 
   const onVideoReady = useCallback((video: HTMLVideoElement) => {
@@ -75,6 +76,12 @@ export function View3D({ socket }: View3DProps) {
             autoPlay
           />
         </div>
+      ) : functionDef?.previewPoseData && functionDef?.previewVideo ? (
+        <Preview3DPlayer
+          poseDataUrl={functionDef.previewPoseData}
+          previewVideoUrl={functionDef.previewVideo}
+          rendererType={rendererType}
+        />
       ) : (
         <div style={{
           width: '100%',
@@ -161,30 +168,32 @@ export function View3D({ socket }: View3DProps) {
         </button>
       </div>
 
-      {/* Status indicator */}
-      <div style={{
-        position: 'absolute',
-        bottom: 12,
-        right: 14,
-        display: 'flex',
-        alignItems: 'center',
-        gap: 6,
-        fontSize: 11,
-        color: 'rgba(255,255,255,0.6)',
-        background: 'rgba(0,0,0,0.5)',
-        padding: '4px 10px',
-        borderRadius: 8,
-        backdropFilter: 'blur(8px)',
-      }}>
+      {/* Status indicator — only show when streaming */}
+      {isStreamActive && (
         <div style={{
-          width: 8,
-          height: 8,
-          borderRadius: '50%',
-          backgroundColor: backendResult ? '#30d158' : '#ff9f0a',
-          animation: 'pulse 2s infinite',
-        }} />
-        {backendResult ? 'LIVE' : 'Starting...'}
-      </div>
+          position: 'absolute',
+          bottom: 12,
+          right: 14,
+          display: 'flex',
+          alignItems: 'center',
+          gap: 6,
+          fontSize: 11,
+          color: 'rgba(255,255,255,0.6)',
+          background: 'rgba(0,0,0,0.5)',
+          padding: '4px 10px',
+          borderRadius: 8,
+          backdropFilter: 'blur(8px)',
+        }}>
+          <div style={{
+            width: 8,
+            height: 8,
+            borderRadius: '50%',
+            backgroundColor: backendResult ? '#30d158' : '#ff9f0a',
+            animation: 'pulse 2s infinite',
+          }} />
+          {backendResult ? 'LIVE' : 'Starting...'}
+        </div>
+      )}
     </div>
   );
 }

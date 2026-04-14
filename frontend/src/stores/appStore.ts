@@ -65,7 +65,7 @@ interface AppState {
 export const useAppStore = create<AppState>((set) => ({
   activeFunction: null,
   functionDef: null,
-  sourceType: 'camera',
+  sourceType: 'video',
   deviceId: '',
   deviceLabel: '',
   videoFile: null,

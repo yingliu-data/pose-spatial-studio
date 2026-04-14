@@ -28,15 +28,17 @@ export function useCameraDevices() {
     }
   }, []);
 
-  const requestPermission = useCallback(async () => {
+  const requestPermission = useCallback(async (): Promise<boolean> => {
     setLoading(true);
     try {
       const stream = await navigator.mediaDevices.getUserMedia({ video: true });
       stream.getTracks().forEach((t) => t.stop());
       setPermissionGranted(true);
       await enumerate();
+      return true;
     } catch (err) {
       console.error('Error requesting camera permission:', err);
+      return false;
     } finally {
       setLoading(false);
     }
